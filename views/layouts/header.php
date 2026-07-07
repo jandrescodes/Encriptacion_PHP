@@ -60,6 +60,11 @@
                 </ul>
                 <ul class="navbar-nav mr-2">
                     <li class="nav-item">
+                        <a class="nav-link" href="<?= APP_URL ?>/sessions">
+                            <i class="fas fa-desktop mr-1"></i> Sessions
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="<?= APP_URL ?>/profile">
                             <i class="fas fa-user mr-1"></i> <?= htmlspecialchars($_SESSION['name'] ?? '') ?>
                         </a>

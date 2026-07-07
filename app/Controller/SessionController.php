@@ -34,8 +34,9 @@ class SessionController extends Controller
         $this->guard();
 
         $this->render('session/index.php', [
-            'pageTitle' => 'Active Sessions — SecureAuth',
-            'sessions'  => $this->sessionModel->getForUser((int) $_SESSION['user_id'], $this->currentTokenHash()),
+            'pageTitle'    => 'Active Sessions — SecureAuth',
+            'sessions'     => $this->sessionModel->getForUser((int) $_SESSION['user_id'], $this->currentTokenHash()),
+            'pageScripts'  => ['js/sessions-revoke.js'],
         ], protected: true);
     }
 
