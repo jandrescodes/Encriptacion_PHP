@@ -28,6 +28,7 @@ Cada plantilla sigue la estructura de 5 ejes del prompt profesional:
 - **Si el output no encaja**, no corrijas manualmente primero — ajusta `[Restricciones]` y repite.
 - **El spec antes que el código.** Define qué debe hacer antes de pedir que lo implemente.
 - **Guarda los prompts que funcionen bien** en este archivo como nuevas plantillas.
+- **Los "Ejemplos reales" son curados, no un log histórico.** Se mantienen solo 3-4 que cubran patrones distintos (feature simple, testing, DataTables server-side, nueva tabla + middleware). Al agregar un ejemplo nuevo, si cubre el mismo patrón que uno existente, reemplázalo en vez de sumarlo — no documentar cada feature aquí, para eso está el CHANGELOG.
 
 ---
 
@@ -367,215 +368,6 @@ Plan en 4 fases con objetivo, archivos, decisiones técnicas y código completo.
 
 ---
 
-## Ejemplo real — Perfil de usuario (implementado en v1.9.0)
-
-> Prompt de feature con vista unificada y métodos de modelo independientes.
-
-```
-[Rol]
-Actúa como desarrollador PHP Senior especializado en arquitectura MVC
-y seguridad web (autenticación, hashing, sesiones).
-
-[Contexto]
-Proyecto: Encriptacion_PHP — PHP MVC con Composer (sin framework).
-Stack: PHP 8.2+, MySQLi, Bootstrap 4, SweetAlert2.
-Módulo: profile (nuevo).
-
-[Tarea]
-Implementar perfil de usuario con dos sub-features en una sola vista:
-
-1. profile() — Editar información del perfil
-   - GET /profile muestra la vista; POST /profile procesa
-   - Campos: first_name, last_name, email, username
-   - Cualquier usuario autenticado (no requiere admin)
-   - Validar unicidad excluyendo el propio ID
-   - Actualizar $_SESSION['name'] si cambia first_name
-   - Invalidar caché users.all
-
-2. changePassword() — Cambiar contraseña
-   - POST /profile/password (sin GET propio — form en la vista de perfil)
-   - Campos: current_password, new_password, confirm_password
-   - password_verify() para verificar la actual
-   - password_hash() para guardar la nueva
-
-[Restricciones]
-- Vista unificada views/profile/index.php con dos <form> independientes,
-  cada uno con su propio _csrf token
-- Controlador ProfileController — guard usa auth(), no admin()
-- $id siempre de $_SESSION['user_id'] — nunca de $_POST/$_GET (IDOR imposible)
-- Métodos nuevos en User.php:
-    updateProfile(int $id, array $data): bool — solo info, sin password/is_admin
-    getPasswordById(int $id): ?string — solo el hash para verificar
-    updatePasswordProfile(int $id, string $new): bool — por id, independiente de
-      updatePassword() que sigue siendo exclusivo del flujo de reset por email
-- Errores de changePassword() redirigen a /profile (misma vista, mismo toast)
-
-[Formato de salida]
-Plan en fases atómicas: 1-Model, 2-Rutas, 3-Controller, 4-Vista, 5-Nav.
-Cada fase: objetivo, archivos, cambios técnicos, criterio de done.
-```
-
----
-
----
-
-## Ejemplo real — Audit log (implementado en v1.10.0)
-
-> Prompt de feature con modelo estático, helper testeable y vista DataTables.
-
-```
-[Rol]
-Actúa como desarrollador PHP Senior especializado en arquitectura MVC
-y seguridad web (autenticación, hashing, sesiones).
-
-[Contexto]
-Proyecto: Encriptacion_PHP — PHP MVC con Composer (sin framework).
-Stack: Bootstrap 4, DataTables, SweetAlert2, FontAwesome, MySQL/MariaDB, PHPMailer.
-Módulo: audit log (nuevo).
-
-[Tarea]
-Diseña el plan COMPLETO de implementación del módulo de audit log.
-
-Criterios de aceptación:
-- Tabla activity_logs: id, user_id (nullable), event, description, ip_address, created_at
-- Clase App\Model\ActivityLog con log() estático invocable desde cualquier controller
-- Vista /activity-logs solo visible para admins (AuthMiddleware::admin())
-- Tabla con DataTables client-side — misma infraestructura que /users
-- Columnas visibles: fecha, usuario, evento, descripción, IP
-- Esquema simple — sin campos JSON ni extras
-- Tests PHPUnit: log con user, log anónimo, getAll()
-
-[Restricciones]
-- Arquitectura MVC estándar, MySQLi prepared statements siempre
-- ActivityLog::log() llamable sin instanciar (usa Database::getConnection())
-- user_id nullable: eventos de login fallido no tienen usuario autenticado
-- ip_address: $_SERVER['REMOTE_ADDR'] — no X-Forwarded-For
-- NO paginación server-side — DataTables client-side es suficiente
-- Tests: NO mocks de mysqli, NO cargar autoload.php, extender Tests\TestCase, PHPUnit 11 #[Test]
-- El logging nunca debe romper el flujo principal (try/catch + error_log en fallo)
-- Separar logTo(\mysqli $db) como helper privado para inyección en tests sin singleton
-
-[Formato de salida]
-Plan en fases atómicas. Para cada fase: objetivo, archivos, cambios técnicos, criterio de done.
-Al final: tabla de archivos afectados, consideraciones de seguridad, edge cases para tests.
-```
-
----
-
----
-
-## Ejemplo real — DataTables Buttons + ColVis (implementado en v1.11.0)
-
-> Prompt de feature de exportación con assets self-hosted y configuración por flag de layout.
-
-```
-[Rol]
-Actúa como desarrollador PHP Senior especializado en arquitectura MVC
-y seguridad web (autenticación, hashing, sesiones).
-
-[Contexto]
-Proyecto: Encriptacion_PHP — PHP MVC con Composer (sin framework).
-Stack: Bootstrap 4, DataTables, SweetAlert2, FontAwesome, MySQL/MariaDB, PHPMailer.
-Módulo activo: DataTables — exportación y visibilidad de columnas
-
-Archivos relevantes:
-- views/layouts/header.php               ← <head> compartido; soporta $useDataTables, $pageStyles
-- views/layouts/footer.php               ← footer compartido; soporta $useDataTables, $pageScripts
-- app/Controller/UserController.php      ← pasa useDataTables:true + pageScripts a render()
-- app/Controller/ActivityLogController.php ← pasa useDataTables:true + pageScripts a render()
-- views/user/index.php                   ← tabla Bootstrap con DataTables
-- views/activity-log/index.php           ← tabla Bootstrap con DataTables
-- public/js/users-table.js               ← inicialización DataTables para /users
-- public/js/activity-logs-table.js       ← inicialización DataTables para /activity-logs
-- public/DataTables/                     ← assets self-hosted de DataTables ya existentes
-
-[Tarea]
-Agregar botones de exportación (Copy, CSV, Excel, PDF, Print) y selector de columnas (ColVis)
-a las dos tablas existentes: /users y /activity-logs.
-
-Criterios de aceptación:
-- Botones agrupados en colección "Reports"; ColVis separado con texto "Columns"
-- PDF con customize: título bold centrado, subtítulo italic, fecha de generación, footer por página
-- Excel con messageTop, messageBottom y filename con fecha ISO
-- Print con table-striped y font-size vía customize
-- Columna Actions de /users excluida de todos los exports y del ColVis (clase no-export)
-- Assets self-hosted en public/DataTables/ — nunca CDN externo
-- Carga integrada en el flag $useDataTables existente — header.php y footer.php manejan los assets automáticamente
-
-[Restricciones]
-- NO introducir nuevas variables de layout — extender el bloque $useDataTables en header/footer
-- Assets via APP_URL — nunca rutas relativas
-- Orden de carga JS: dataTables.buttons → buttons.bootstrap4 → jszip → pdfmake → vfs_fonts
-  → buttons.html5 → buttons.print → buttons.colVis → init JS de la página
-- Versión Buttons 2.4.2 (compatible con DataTables 1.11.x — NO usar 3.x)
-- No agregar comentarios obvios — solo donde el WHY no sea evidente
-
-[Formato de salida]
-Plan en fases atómicas. Para cada fase: objetivo, archivos, cambios técnicos, criterio de done.
-Al final: orden de carga JS, edge cases a verificar manualmente.
-```
-
----
-
----
-
-## Ejemplo real — Dashboard con métricas (implementado en v1.12.0)
-
-> Prompt de feature que agrega queries de agregación a modelos existentes y rediseña la vista home.
-
-```
-[Rol]
-Actúa como desarrollador PHP Senior especializado en arquitectura MVC
-y seguridad web (autenticación, hashing, sesiones).
-
-[Contexto]
-Proyecto: Encriptacion_PHP — PHP MVC con Composer (sin framework).
-Stack: Bootstrap 4, DataTables, SweetAlert2, FontAwesome, MySQL/MariaDB, PHPMailer.
-Módulo activo: home (dashboard)
-
-Archivos relevantes:
-- app/Controller/HomeController.php           ← renderiza views/home/index.php con protected:true
-- app/Model/User.php                          ← queries con prepared statements; getAll(), create(), etc.
-- app/Model/ActivityLog.php                   ← log() estático, logTo(), getAll() con LEFT JOIN users
-- app/Model/LoginAttempt.php                  ← registerFailure(), lockedSecondsRemaining(), clear()
-- views/home/index.php                        ← contenido del dashboard (sin <html>)
-- public/css/estilo.css                       ← variables CSS: --color-accent #04a1fc, --color-dark #142e3d
-
-[Tarea]
-Diseña el plan COMPLETO de implementación del dashboard con métricas reales para la home.
-
-Criterios de aceptación:
-- Reemplazar las feature cards genéricas con 4 stat-cards de datos reales:
-  1. Total de usuarios registrados (COUNT en users)
-  2. Logins exitosos hoy (activity_logs WHERE event = EVENT_LOGIN_SUCCESS AND DATE(created_at) = CURDATE())
-  3. Intentos fallidos hoy (activity_logs WHERE event = EVENT_LOGIN_FAILED AND DATE(created_at) = CURDATE())
-  4. Cuentas bloqueadas ahora (login_attempts WHERE locked_until > NOW())
-- Tabla de últimos 5 eventos del audit log (LEFT JOIN users, ORDER BY created_at DESC LIMIT 5)
-- "Anónimo" para eventos sin user_id; enlace "Ver todo" visible solo a admins
-
-Métodos nuevos:
-- User::getTotalCount(): int
-- ActivityLog::getCountTodayByEvent(string $event): int
-- ActivityLog::getRecentEvents(int $limit = 5): array
-- LoginAttempt::getLockedCount(): int
-
-[Restricciones]
-- MySQLi prepared statements siempre; sin interpolación en SQL
-- Guards: AuthMiddleware::timeout() + AuthMiddleware::auth() al inicio de HomeController::index()
-- NO DataTables en el dashboard — tabla simple Bootstrap
-- htmlspecialchars() en todos los outputs de BD; contadores como (int)
-- CURDATE() / NOW() calculados en MySQL — sin drift PHP/MySQL
-- No introducir librerías nuevas
-
-[Formato de salida]
-Plan en fases atómicas. Para cada fase: objetivo, archivos, cambios técnicos, criterio de done.
-Al final: queries SQL finales, consideraciones de seguridad, checklist de testing.
-```
-
----
-
----
-
 ## Ejemplo real — Filtros server-side en Audit Log (implementado en v1.13.0)
 
 > Prompt de feature con DataTables server-side processing, endpoint JSON y formulario de filtros colapsable.
@@ -634,5 +426,56 @@ Al final: queries SQL finales, consideraciones de seguridad, checklist de testin
 
 ---
 
-_Última actualización: 2026-06-24 — v1.13.0_
+## Ejemplo real — Gestión de sesiones activas (implementado en v1.14.0)
+
+> Prompt de feature para permitir a un usuario ver y revocar sus propias sesiones activas desde cualquier dispositivo.
+
+```
+[Rol]
+Actúa como desarrollador PHP Senior especializado en arquitectura MVC
+y seguridad web (autenticación, hashing, sesiones).
+
+[Contexto]
+Proyecto: Encriptacion_PHP — PHP MVC con Composer (sin framework).
+Stack: Bootstrap 4, SweetAlert2, FontAwesome, MySQL/MariaDB.
+Login soporta password + remember-me (cookie con hash SHA-256 en BD).
+
+Archivos relevantes:
+- app/Core/Auth.php                    ← login + restoreFromCookie() (remember-me)
+- app/Controller/AuthController.php    ← login() y logout()
+- app/Middleware/AuthMiddleware.php    ← auth(), admin(), timeout()
+- routes/web.php                       ← rutas existentes
+
+[Tarea]
+Diseña el plan COMPLETO para una feature de "sesiones activas": cada login crea un
+registro de sesión; el usuario puede verlas todas y revocar una o todas menos la actual;
+una sesión revocada debe forzar el logout en su próxima petición.
+
+Criterios de aceptación:
+- Nueva tabla user_sessions (user_id, token_hash, ip, user_agent, via_remember,
+  created_at, last_activity) — token_hash es SHA-256, el token crudo nunca se guarda en BD
+- GET /sessions lista las sesiones del usuario autenticado, marcando la sesión actual
+- POST /sessions/revoke revoca una sesión por id, SIEMPRE con WHERE user_id = sesión actual
+- POST /sessions/revoke-others revoca todas menos la actual
+- Middleware que corre en cada request protegido: si el hash de la sesión ya no existe
+  en BD, destruye la sesión y redirige a /login
+- Flag de entorno para poder desactivar la revocación sin perder el tracking
+
+[Restricciones]
+- Nunca guardar el token de sesión en texto plano — solo su hash SHA-256
+- DELETE de revoke()/revokeOthers() siempre scoped a user_id — nunca confiar solo en session_id
+- MySQLi prepared statements siempre
+- Reusar el patrón de remember-me (hash en BD, valor crudo en cookie/sesión)
+- No introducir librerías nuevas
+
+[Formato de salida]
+Plan en fases atómicas: 1-Migración, 2-Model, 3-Middleware, 4-Rutas+Controller,
+5-Vista+JS, 6-Tests, 7-Docs.
+Para cada fase: objetivo, archivos, cambios técnicos, criterio de done.
+Al final: queries SQL finales, consideraciones de seguridad, checklist de testing manual.
+```
+
+---
+
+_Última actualización: 2026-07-07 — v1.14.0_
 _Mantener sincronizado con CLAUDE.md al agregar features nuevas._

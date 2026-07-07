@@ -47,7 +47,7 @@ SMTP_PORT=587
 
 APP_URL=http://localhost/Encriptacion_PHP/public
 APP_TIMEZONE=America/Bogota
-APP_VERSION=1.13.0
+APP_VERSION=1.14.0
 
 CACHE_ENABLED=true
 CACHE_TTL_USERS=60
@@ -56,6 +56,8 @@ REMEMBER_ME_ENABLED=true
 REMEMBER_ME_TTL=2592000
 
 SESSION_TIMEOUT=1800
+
+ACTIVE_SESSIONS_ENABLED=true
 
 LOGIN_LOCKOUT_ENABLED=true
 LOGIN_MAX_ATTEMPTS=5
@@ -68,6 +70,7 @@ The `.env` file is loaded by `vlucas/phpdotenv` in `app/Config/config.php`, whic
 - `REMEMBER_ME_ENABLED` — enable/disable persistent login via cookie (default `true`)
 - `REMEMBER_ME_TTL` — cookie + token lifetime in seconds (default `2592000` = 30 days)
 - `SESSION_TIMEOUT` — inactivity expiry in seconds (default `1800` = 30 min)
+- `ACTIVE_SESSIONS_ENABLED` — enable/disable active-session tracking and server-side revocation (default `true`)
 - `LOGIN_LOCKOUT_ENABLED` — enable/disable account lockout (default `true`)
 - `LOGIN_MAX_ATTEMPTS` — failed attempts before lock (default `5`)
 - `LOGIN_LOCKOUT_MINUTES` — lock duration in minutes (default `15`)
@@ -100,6 +103,9 @@ Browser → public/index.php → App\Core\Router → Controller::method()
 | `POST /users/delete`        | `UserController::delete()`            |
 | `/activity-logs`            | `ActivityLogController::index()`      |
 | `GET /activity-logs/data`   | `ActivityLogController::data()`       |
+| `/sessions`                 | `SessionController::index()`          |
+| `POST /sessions/revoke`     | `SessionController::revoke()`         |
+| `POST /sessions/revoke-others` | `SessionController::revokeOthers()` |
 
 ### Key Files
 
@@ -118,14 +124,16 @@ Browser → public/index.php → App\Core\Router → Controller::method()
 | `app/Core/Auth.php`                        | `App\Core\Auth` — credential verify, remember-me token issue/consume/clear, password reset tokens (stored as SHA-256 hash), `restoreFromCookie()`, lockout methods                                                                                                                                                                                                                                     |
 | `app/Model/LoginAttempt.php`               | `App\Model\LoginAttempt` — atomic `registerFailure()` via `INSERT ... ON DUPLICATE KEY UPDATE`, `lockedSecondsRemaining()`, `clear()`, `getLockedCount(): int`; `identifier` is the PK (no surrogate id)                                                                                                                                                                                               |
 | `app/Core/Csrf.php`                        | `App\Core\Csrf` — `token()` generates/returns session CSRF token; `verify()` validates `$_POST['_csrf']` with `hash_equals()`                                                                                                                                                                                                                                                                          |
-| `app/Middleware/AuthMiddleware.php`        | Static guards: `auth()`, `admin()`, `timeout(\mysqli)`                                                                                                                                                                                                                                                                                                                                                 |
+| `app/Middleware/AuthMiddleware.php`        | Static guards: `auth()`, `admin()`, `timeout(\mysqli)`, `session(\mysqli)` — validates the current `session_token` against `user_sessions`, destroys the session and redirects to `/login` if revoked                                                                                                                                                                                                  |
 | `app/Controller/AuthController.php`        | All auth logic: login, logout, forgotPassword, resetPassword                                                                                                                                                                                                                                                                                                                                           |
 | `app/Controller/HomeController.php`        | Dashboard: applies timeout + auth middleware, instancia `User`/`ActivityLog`/`LoginAttempt` para pasar métricas reales a la vista                                                                                                                                                                                                                                                                      |
 | `app/Controller/ProfileController.php`     | User profile: `profile()` (edit info) and `changePassword()` — any authenticated user; `$id` always from `$_SESSION['user_id']`                                                                                                                                                                                                                                                                        |
 | `app/Controller/UserController.php`        | Full user CRUD — guarded by `admin()` middleware                                                                                                                                                                                                                                                                                                                                                       |
 | `app/Controller/ActivityLogController.php` | Audit log viewer — `index()` GET `/activity-logs` (HTML, guarded by `admin()`); `data()` GET `/activity-logs/data` (JSON endpoint for DataTables server-side); private `sanitizeFilters(array): array`                                                                                                                                                                                                 |
+| `app/Controller/SessionController.php`     | Active sessions management — `index()` lists the authenticated user's sessions; `revoke()` deletes one session by id (scoped to `user_id`); `revokeOthers()` deletes all sessions except the current one; private `guard()` (timeout + session + auth) and `currentTokenHash()`                                                                                                                      |
 | `app/Model/User.php`                       | `App\Model\User` — all DB queries via MySQLi prepared statements; `updateProfile()` (info only, no password/is_admin), `getPasswordById()`, `updatePasswordProfile()` (by id), `getTotalCount(): int`                                                                                                                                                                                                  |
 | `app/Model/ActivityLog.php`                | `App\Model\ActivityLog` — `log()` static (singleton DB), `logTo(\mysqli)` (test-injectable), `getAll(array $filters = [], ?int $limit = null, ?int $offset = null): array` (LEFT JOIN users, dynamic WHERE, prepared statements), `getTotalCount(array $filters = []): int`, `getCountTodayByEvent(string): int`, `getRecentEvents(int=5): array`; private `buildWhere(array): array`; event constants |
+| `app/Model/UserSession.php`                | `App\Model\UserSession` — `create()`/static `createTo(\mysqli, ...)` (stores SHA-256 hash of the session token, never raw), `touch(hash)` (updates `last_activity`), `existsActive(hash, ttl): bool`, `getForUser(userId, currentHash): array` (marks `is_current` via hash comparison in SQL), `revoke(id, userId): bool` (scoped to owner), `revokeAllExcept(userId, currentHash): int`, `deleteByTokenHash(hash)`, `purgeExpired(ttl): int`                                                                                                                                                                    |
 | `app/Service/MailerService.php`            | PHPMailer encapsulation — SMTP via STARTTLS                                                                                                                                                                                                                                                                                                                                                            |
 | `views/layouts/header.php`                 | Shared `<head>` + nav for all protected pages; accepts `$pageTitle`, `$favicon`, `$bodyClass`, `$useDataTables`, `$pageStyles`                                                                                                                                                                                                                                                                         |
 | `views/layouts/footer.php`                 | Shared footer with version; accepts `$useDataTables`, `$pageScripts`                                                                                                                                                                                                                                                                                                                                   |
@@ -135,6 +143,7 @@ Browser → public/index.php → App\Core\Router → Controller::method()
 | `views/profile/index.php`                  | Unified profile view — two independent forms: edit info (`POST /profile`) and change password (`POST /profile/password`); each with its own `_csrf` token                                                                                                                                                                                                                                              |
 | `views/activity-log/index.php`             | Audit log view — Bootstrap table with DataTables server-side; `<tbody>` vacío (AJAX); formulario de filtros colapsable (evento, username, date_from, date_to); badge warning cuando hay filtros activos; badges por tipo de evento; wrapped by shared layout                                                                                                                                           |
 | `views/user/`                              | Protected user CRUD views — wrapped by shared layout                                                                                                                                                                                                                                                                                                                                                   |
+| `views/session/index.php`                  | Active sessions view — table of the user's sessions (device/browser, IP, created, last activity, current-session badge); "Close all other sessions" form shown only when more than one session exists; per-row revoke button disabled for the current session                                                                                                                                       |
 | `views/errors/`                            | Standalone error views (`404.php`, `403.php`, `500.php`) sharing `layout.php` — no app layout dependency; used by Router, AuthMiddleware and Database on failure                                                                                                                                                                                                                                       |
 | `storage/.htaccess`                        | `Require all denied` — prevents direct web access to cache files                                                                                                                                                                                                                                                                                                                                       |
 | `public/css/estilo.css`                    | Global styles + CSS palette variables (`--color-dark`, `--color-accent`)                                                                                                                                                                                                                                                                                                                               |
@@ -142,7 +151,8 @@ Browser → public/index.php → App\Core\Router → Controller::method()
 | `public/js/users-table.js`                 | DataTables initialization — loaded only in `UserController::index()` via `pageScripts`                                                                                                                                                                                                                                                                                                                 |
 | `public/js/users-delete.js`                | SweetAlert2 delete confirmation — loaded only in `UserController::index()` via `pageScripts`                                                                                                                                                                                                                                                                                                           |
 | `public/js/activity-logs-table.js`         | DataTables initialization for audit log — server-side processing (`serverSide: true`); `ajax.data` callback pasa filtros del formulario al endpoint `/activity-logs/data`; `searching: false`; order by date DESC, pageLength 25; Buttons + ColVis conservados                                                                                                                                         |
-| `database/schema.sql`                      | Current DB schema — `users` + `password_resets` tables                                                                                                                                                                                                                                                                                                                                                 |
+| `public/js/sessions-revoke.js`             | SweetAlert2 confirmation for `.js-revoke-session` buttons — builds and submits a hidden POST form (`_csrf`, `session_id`, `btnrevoke`) to `/sessions/revoke` on confirm                                                                                                                                                                                                                               |
+| `database/schema.sql`                      | Current DB schema — `users`, `password_resets`, `login_attempts`, `activity_logs`, `user_sessions` tables                                                                                                                                                                                                                                                                                              |
 | `database/seeds.sql`                       | Sample users with bcrypt-hashed passwords                                                                                                                                                                                                                                                                                                                                                              |
 
 ### Session Variables
@@ -153,6 +163,7 @@ Set on login (only after successful `password_verify()`), required for all prote
 - `$_SESSION['name']` — display name (first_name)
 - `$_SESSION['is_admin']` — boolean, controls admin menu visibility
 - `$_SESSION['last_activity']` — Unix timestamp; updated on every request; used by `AuthMiddleware::timeout()` to enforce inactivity expiry
+- `$_SESSION['session_token']` — raw random token (`bin2hex(random_bytes(32))`) issued at login; SHA-256 hash is the row identity in `user_sessions`; used by `AuthMiddleware::session()` to check revocation and by `SessionController` to identify the current session (`is_current`)
 
 Flash notifications (rendered by `views/layouts/messages.php`):
 
@@ -170,6 +181,9 @@ Flash notifications (rendered by `views/layouts/messages.php`):
 - **activity_logs**: `id, user_id` (INT NULL, FK → `users.id` ON DELETE SET NULL), `event` (VARCHAR 50), `description` (VARCHAR 255), `ip_address` (VARCHAR 45, supports IPv6), `created_at` (DATETIME DEFAULT CURRENT_TIMESTAMP)
   - Indexes on `created_at` and `user_id`; `user_id` NULL for unauthenticated events (e.g. failed login)
   - Immutable — no update/delete endpoints; records preserved when user is deleted via ON DELETE SET NULL
+- **user_sessions**: `id, user_id` (INT, FK → `users.id` ON DELETE CASCADE), `token_hash` (CHAR 64, SHA-256 of the session token, UNIQUE), `ip_address` (VARCHAR 45, nullable), `user_agent` (VARCHAR 255, nullable), `via_remember` (TINYINT default 0), `created_at`, `last_activity` (both DATETIME DEFAULT CURRENT_TIMESTAMP)
+  - Indexes on `user_id` and `last_activity`; one row per active login (created on password login and on remember-me auto-login)
+  - Deleted on logout (`deleteByTokenHash`), on explicit revoke, and cascades when the user is deleted
 
 ## Frontend / Assets
 
@@ -244,13 +258,14 @@ Loaded **only** on pages that set `$useDataTables = true`. The flag loads the fu
 - Flash messages rendered via `json_encode()` in `views/layouts/messages.php` — prevents XSS from user-controlled values (e.g. `first_name`) injected into the JavaScript SweetAlert2 call
 - **Account lockout**: `LoginAttempt::registerFailure()` uses `INSERT ... ON DUPLICATE KEY UPDATE` with `attempts + 1` evaluated in SQL — atomic, no read-modify-write race; `locked_until` set when `attempts >= LOGIN_MAX_ATTEMPTS`; all date math done in MySQL (`NOW()`, `DATE_ADD`, `TIMESTAMPDIFF`) to avoid PHP/MySQL drift; only tracked for existing usernames (`Auth::userExists()` checked before registering)
 - **Custom error pages**: `views/errors/404.php`, `403.php`, `500.php` — standalone (no DB/session dependency), rendered by Router (404), AuthMiddleware::admin() (403) and Database::getConnection() (500); DB errors logged via `error_log()`, never exposed to the browser
+- **Active sessions / server-side revocation**: every login (password or remember-me) creates a `user_sessions` row keyed by SHA-256 hash of a random `session_token` (never stored raw); `AuthMiddleware::session()` runs on every protected request, checks `existsActive()` against `SESSION_TIMEOUT`, and force-logs-out (destroy session + redirect `/login`) if the row was deleted (i.e. revoked from another device); `SessionController` lets a user list/revoke their own sessions — `revoke()`/`revokeOthers()` always scope `DELETE` to `user_id` so one user cannot revoke another's session; gated by `ACTIVE_SESSIONS_ENABLED`
 
 ## Testing
 
 ### Stack
 
 - **PHPUnit ^11.0** — integration tests against a real MySQL database (`login_test`)
-- **58 tests total:** 14 in `tests/Unit/UserTest.php` (User model), 7 in `tests/Unit/LoginAttemptTest.php` (LoginAttempt model), 18 in `tests/Unit/ActivityLogTest.php` (ActivityLog model), 19 in `tests/Integration/AuthTest.php` (Auth class)
+- **71 tests total:** 14 in `tests/Unit/UserTest.php` (User model), 7 in `tests/Unit/LoginAttemptTest.php` (LoginAttempt model), 18 in `tests/Unit/ActivityLogTest.php` (ActivityLog model), 13 in `tests/Unit/UserSessionTest.php` (UserSession model), 19 in `tests/Integration/AuthTest.php` (Auth class)
 - **CI:** `.github/workflows/tests.yml` — runs on push/PR to `master` with a MySQL 8.0 service
 
 ### Running tests locally
@@ -290,6 +305,7 @@ composer test:integration  # Auth class only
 | `tests/Unit/UserTest.php`         | 14 tests for `App\Model\User`                                |
 | `tests/Unit/LoginAttemptTest.php` | 7 tests for `App\Model\LoginAttempt`                         |
 | `tests/Unit/ActivityLogTest.php`  | 18 tests for `App\Model\ActivityLog`                         |
+| `tests/Unit/UserSessionTest.php`  | 13 tests for `App\Model\UserSession`                         |
 | `tests/Integration/AuthTest.php`  | 19 tests for `App\Core\Auth`                                 |
 | `.github/workflows/tests.yml`     | GitHub Actions CI workflow                                   |
 
@@ -303,3 +319,4 @@ composer test:integration  # Auth class only
 - Auth views use `<button type="submit">` (not `<input type="submit">`); POST detection uses `isset($_POST['btnXXX'])` — not `!empty()` — since `<button>` without a `value` attribute submits an empty string
 - User delete flow uses `.js-delete-user` buttons with `data-delete-url`, `data-name`, `data-username`; confirmation handled in `public/js/users-delete.js`
 - `session_start_secure()` is called in `app/Config/autoload.php` — always use this helper instead of bare `session_start()` to ensure `httponly`/`samesite`/`secure` options are applied; `Auth::restoreFromCookie()` runs immediately after on every request
+- `AuthMiddleware::session()` is currently only wired into `SessionController::guard()` (after `timeout()`, before `auth()`) — other protected controllers do not yet check session revocation; if that changes, keep `timeout() → session() → auth()` order since `session()` needs `$_SESSION['session_token']` to still be present

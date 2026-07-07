@@ -6,6 +6,31 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 > Note: Entries before `1.3.1` may reference legacy paths (`config/`, `controllers/`, `model/`) that were moved to `app/Config/`, `app/Controller/`, and `app/Model/`.
 
+## [1.14.0] — 2026-07-07
+
+### Added
+
+- **Active sessions management** — users can view and revoke their own logged-in sessions across devices:
+  - New table `user_sessions` (`id, user_id, token_hash, ip_address, user_agent, via_remember, created_at, last_activity`); `token_hash` is a UNIQUE SHA-256 hash of a random session token — the raw token is stored only in `$_SESSION['session_token']`, never in the DB
+  - A row is created on every successful login, both password login and remember-me auto-login (`Auth::restoreFromCookie()` / `AuthController::login()`), via `UserSession::create()` / `UserSession::createTo()`
+  - New `AuthMiddleware::session(\mysqli)` guard — validates the current session's hash is still active (`existsActive()` against `SESSION_TIMEOUT`) and touches `last_activity`; if the row was deleted (revoked elsewhere), it destroys the session and redirects to `/login` with a warning flash
+  - New `GET /sessions` — lists all of the user's active sessions (device/browser, IP, created, last activity, current-session badge) via `App\Controller\SessionController::index()`
+  - New `POST /sessions/revoke` — revokes a single session by id, scoped to the authenticated `user_id` (cannot revoke another user's session even by guessing an id)
+  - New `POST /sessions/revoke-others` — revokes every session except the current one (`revokeAllExcept()`)
+  - Session row deleted on logout (`AuthController::logout()`) and cascades on user deletion (`ON DELETE CASCADE`)
+  - New env var `ACTIVE_SESSIONS_ENABLED` (default `true`) — disables the revocation check in `AuthMiddleware::session()` without removing session tracking
+  - Both revoke actions log `ActivityLog::EVENT_SESSION_REVOKED`
+  - 13 new tests in `tests/Unit/UserSessionTest.php` — hash storage (never raw token), `via_remember` flag, `existsActive()` TTL boundary, `getForUser()` ordering and `is_current` flag, `revoke()` ownership scoping, `revokeAllExcept()` count and exclusion, `deleteByTokenHash()`, `purgeExpired()`; **71 tests in total**
+
+### Changed
+
+- `app/Core/Auth.php` — issues `session_token` and creates the `user_sessions` row on remember-me auto-login (`restoreFromCookie()`)
+- `app/Controller/AuthController.php` — issues `session_token` and creates the `user_sessions` row on password login; deletes the row by token hash on logout
+- `app/Middleware/AuthMiddleware.php` — new static `session(\mysqli $connection): void`
+- `routes/web.php` — new routes `GET /sessions`, `POST /sessions/revoke`, `POST /sessions/revoke-others`
+- `database/schema.sql` / `database/schema_test.sql` — new `user_sessions` table
+- `app/Model/ActivityLog.php` — new event constant `EVENT_SESSION_REVOKED`
+
 ## [1.13.0] — 2026-06-24
 
 ### Added

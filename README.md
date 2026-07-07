@@ -2,7 +2,7 @@
 
 # SecureAuth — PHP MVC Authentication System
 
-[![Version](https://img.shields.io/badge/version-1.13.0-blue.svg?style=flat-square)](https://github.com/Jandres25/Encriptacion_PHP/releases/tag/1.13.0)
+[![Version](https://img.shields.io/badge/version-1.14.0-blue.svg?style=flat-square)](https://github.com/Jandres25/Encriptacion_PHP/releases/tag/1.14.0)
 [![Tests](https://github.com/Jandres25/Encriptacion_PHP/actions/workflows/tests.yml/badge.svg)](https://github.com/Jandres25/Encriptacion_PHP/actions/workflows/tests.yml)
 [![PHP Version](https://img.shields.io/badge/PHP->=8.2-777BB4.svg?style=flat-square&logo=php)](https://php.net/)
 [![PHPMailer](https://img.shields.io/badge/PHPMailer-^6.9-1F3B5F.svg?style=flat-square)](https://github.com/PHPMailer/PHPMailer)
@@ -32,7 +32,8 @@ Custom PHP MVC authentication system built with Composer, a lightweight router, 
 - **Audit log** — all security and admin events (logins, logouts, password changes, user CRUD) recorded in `activity_logs`; admin-only view at `/activity-logs` with DataTables server-side processing; filterable by event type, username (partial match), and date range via collapsible filter form
 - **Dashboard with real metrics** — home page shows 4 live stat-cards (total users, successful logins today, failed logins today, locked accounts) and a Bootstrap table of the 5 most recent audit events; queries via `User::getTotalCount()`, `ActivityLog::getCountTodayByEvent()`, `ActivityLog::getRecentEvents()`, `LoginAttempt::getLockedCount()`
 - **DataTables Buttons + ColVis** — export buttons (Copy, PDF, Excel, CSV, Print) and column visibility toggle on `/users` and `/activity-logs`; PDF/Excel with custom title, subtitle, date and footer; Actions column excluded from all exports; assets self-hosted (Buttons 2.4.2)
-- **Integration test suite** — 58 PHPUnit tests against a real MySQL DB; CI via GitHub Actions
+- **Active sessions management** — every login (password or remember-me) is tracked in `user_sessions`; users can view all their active sessions at `/sessions` (device/browser, IP, created, last activity) and revoke any of them individually or all-but-current; revoked sessions are force-logged-out on their next request via `AuthMiddleware::session()`; controlled by `ACTIVE_SESSIONS_ENABLED`
+- **Integration test suite** — 71 PHPUnit tests against a real MySQL DB; CI via GitHub Actions
 - SweetAlert2 toast notifications for all CRUD and authentication actions
 - Per-page asset injection — `$pageStyles` / `$pageScripts` arrays in shared layouts
 - Shared layout system — `header.php` / `footer.php` accept `$pageTitle`, `$favicon`, `$bodyClass`, `$useDataTables` (loads DataTables core + Buttons + ColVis when `true`)
@@ -82,7 +83,7 @@ SMTP_PORT=587
 
 APP_URL=http://localhost/Encriptacion_PHP/public
 APP_TIMEZONE=America/Bogota
-APP_VERSION=1.13.0
+APP_VERSION=1.14.0
 
 CACHE_ENABLED=true
 CACHE_TTL_USERS=60
@@ -91,6 +92,8 @@ REMEMBER_ME_ENABLED=true
 REMEMBER_ME_TTL=2592000
 
 SESSION_TIMEOUT=1800
+
+ACTIVE_SESSIONS_ENABLED=true
 
 LOGIN_LOCKOUT_ENABLED=true
 LOGIN_MAX_ATTEMPTS=5
@@ -125,6 +128,7 @@ mysql -u root -p < database/seeds.sql
 │   │   ├── AuthController.php    # login, logout, forgotPassword, resetPassword
 │   │   ├── HomeController.php    # Dashboard — applies timeout + auth middleware
 │   │   ├── ProfileController.php # profile(), changePassword() — any authenticated user
+│   │   ├── SessionController.php # Active sessions — index(), revoke(), revokeOthers()
 │   │   └── UserController.php    # Full user CRUD — guarded by admin middleware
 │   ├── Core/
 │   │   ├── Auth.php            # Credential verify, remember-me tokens, password reset tokens
@@ -133,15 +137,16 @@ mysql -u root -p < database/seeds.sql
 │   │   ├── Model.php           # Abstract base — holds protected \mysqli $db
 │   │   └── Router.php          # GET/POST route registration and dispatch
 │   ├── Middleware/
-│   │   └── AuthMiddleware.php  # Static guards: auth(), admin(), timeout()
+│   │   └── AuthMiddleware.php  # Static guards: auth(), admin(), timeout(), session()
 │   ├── Model/
 │   │   ├── ActivityLog.php     # Audit log — log(), logTo(), getAll(); event constants
 │   │   ├── LoginAttempt.php    # Account lockout — atomic insert/update, lock check, clear
-│   │   └── User.php            # All DB queries via MySQLi prepared statements
+│   │   ├── User.php            # All DB queries via MySQLi prepared statements
+│   │   └── UserSession.php     # Active sessions — create, touch, existsActive, revoke, revokeAllExcept
 │   └── Service/
 │       └── MailerService.php   # PHPMailer encapsulation — SMTP via STARTTLS
 ├── database/
-│   ├── schema.sql              # Table definitions (users, password_resets, login_attempts, activity_logs)
+│   ├── schema.sql              # Table definitions (users, password_resets, login_attempts, activity_logs, user_sessions)
 │   ├── schema_test.sql         # Table-only schema for test DB (no CREATE DATABASE)
 │   └── seeds.sql               # Sample data with bcrypt-hashed passwords
 ├── libs/
@@ -150,7 +155,7 @@ mysql -u root -p < database/seeds.sql
 │   ├── css/                    # bootstrap.css, estilo.css, all.min.css, layout-protected.css
 │   ├── DataTables/             # DataTables JS bundle + Bootstrap 4 skin
 │   ├── img/                    # Images and icons
-│   ├── js/                     # jQuery, Bootstrap JS, Popper, SweetAlert2, users-*.js, activity-logs-table.js
+│   ├── js/                     # jQuery, Bootstrap JS, Popper, SweetAlert2, users-*.js, activity-logs-table.js, sessions-revoke.js
 │   ├── webfonts/               # FontAwesome webfonts
 │   ├── .htaccess               # Apache rewrite rules for clean URLs
 │   └── index.php               # Front controller
@@ -166,13 +171,15 @@ mysql -u root -p < database/seeds.sql
 │   ├── layouts/                # header.php, footer.php, messages.php
 │   ├── activity-log/           # index.php — audit log table (admin only)
 │   ├── profile/                # index.php — unified profile + change password view
+│   ├── session/                # index.php — active sessions table + revoke actions
 │   └── user/                   # index, create, edit (wrapped by shared layout)
 ├── tests/
 │   ├── bootstrap.php           # Test bootstrap — loads .env.testing, never starts session
 │   ├── TestCase.php            # Abstract base — DB connection, truncate, createUser()
 │   ├── Unit/
-│   │   ├── ActivityLogTest.php # 10 tests for App\Model\ActivityLog
+│   │   ├── ActivityLogTest.php # 18 tests for App\Model\ActivityLog
 │   │   ├── LoginAttemptTest.php # 7 tests for App\Model\LoginAttempt
+│   │   ├── UserSessionTest.php # 13 tests for App\Model\UserSession
 │   │   └── UserTest.php        # 14 tests for App\Model\User
 │   └── Integration/
 │       └── AuthTest.php        # 19 integration tests for App\Core\Auth
@@ -186,8 +193,9 @@ mysql -u root -p < database/seeds.sql
 1. Open `http://localhost/Encriptacion_PHP/public/` in your browser
 2. Log in with a seeded user (e.g. username `Admin`, password `Admin1234`)
 3. Click your username in the nav to access your **profile** — edit info or change password
-4. Admin users (`is_admin = 1`) see the **Users** and **Activity Log** links in the nav → full CRUD and audit history
-5. To recover a password, click "Forgot your password?" on the login page
+4. Visit `/sessions` to view your active sessions and revoke any device individually or all-but-current
+5. Admin users (`is_admin = 1`) see the **Users** and **Activity Log** links in the nav → full CRUD and audit history
+6. To recover a password, click "Forgot your password?" on the login page
 
 ## URL Routing
 
@@ -208,6 +216,9 @@ All routes are declared in `routes/web.php` and dispatched by `App\Core\Router`:
 | `POST /users/delete`        | `UserController::delete()`            |
 | `/activity-logs`            | `ActivityLogController::index()`      |
 | `/activity-logs/data`       | `ActivityLogController::data()`       |
+| `/sessions`                 | `SessionController::index()`          |
+| `POST /sessions/revoke`     | `SessionController::revoke()`         |
+| `POST /sessions/revoke-others` | `SessionController::revokeOthers()` |
 
 ## Security
 
@@ -230,6 +241,7 @@ All routes are declared in `routes/web.php` and dispatched by `App\Core\Router`:
 - **Account lockout** — 5 consecutive failed logins lock the account for 15 min (configurable); only tracked for existing usernames; lockout cleared on successful login or password reset
 - **Custom error pages** — 404, 403, 500 views are standalone (no DB/session dependency); DB errors logged via `error_log()`, never exposed to the browser
 - **Audit log** — `ActivityLog::log()` wrapped in try/catch so a logging failure never aborts the main flow; IP from `$_SERVER['REMOTE_ADDR']` only; records preserved via FK `ON DELETE SET NULL` when user is deleted
+- **Active sessions** — every login stores only the SHA-256 hash of a random session token in `user_sessions` (never the raw token); `AuthMiddleware::session()` checks the hash on protected requests and force-logs-out the browser if the row was revoked; revoke/revoke-others queries are always scoped to `user_id`, so one user cannot terminate another's session
 
 ## Cache
 
@@ -259,7 +271,7 @@ cp .env.testing.example .env.testing   # or create it manually from .env.testing
 composer test
 
 # Run by suite
-composer test:unit         # App\Model\User + App\Model\LoginAttempt + App\Model\ActivityLog — 39 tests
+composer test:unit         # App\Model\User + App\Model\LoginAttempt + App\Model\ActivityLog + App\Model\UserSession — 52 tests
 composer test:integration  # App\Core\Auth — 19 tests
 ```
 
