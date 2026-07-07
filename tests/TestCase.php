@@ -81,6 +81,7 @@ abstract class TestCase extends BaseTestCase
         self::$db->query('TRUNCATE TABLE password_resets');
         self::$db->query('TRUNCATE TABLE login_attempts');
         self::$db->query('TRUNCATE TABLE activity_logs');
+        self::$db->query('TRUNCATE TABLE user_sessions');
         self::$db->query('SET FOREIGN_KEY_CHECKS=1');
     }
 
@@ -114,6 +115,23 @@ abstract class TestCase extends BaseTestCase
         $data['id']            = $stmt->insert_id;
         $data['password_hash'] = $hash;
         $stmt->close();
+        return $data;
+    }
+
+    protected function createSession(int $userId, array $overrides = []): array
+    {
+        $defaults = [
+            'raw_token'    => bin2hex(random_bytes(32)),
+            'ip'           => '127.0.0.1',
+            'user_agent'   => 'PHPUnit',
+            'via_remember' => false,
+        ];
+        $data = array_merge($defaults, $overrides);
+
+        $model = new \App\Model\UserSession(self::$db);
+        $data['id']         = $model->create($userId, $data['raw_token'], $data['ip'], $data['user_agent'], $data['via_remember']);
+        $data['token_hash'] = hash('sha256', $data['raw_token']);
+
         return $data;
     }
 }
