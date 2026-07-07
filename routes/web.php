@@ -6,6 +6,7 @@ use App\Controller\ActivityLogController;
 use App\Controller\AuthController;
 use App\Controller\HomeController;
 use App\Controller\ProfileController;
+use App\Controller\SessionController;
 use App\Controller\UserController;
 
 $router->get('/',                 [HomeController::class,  'index']);
@@ -24,6 +25,10 @@ $router->post('/profile/password', [ProfileController::class, 'changePassword'])
 
 $router->get('/activity-logs/data', [ActivityLogController::class, 'data']);
 $router->get('/activity-logs',      [ActivityLogController::class, 'index']);
+
+$router->get('/sessions',                [SessionController::class, 'index']);
+$router->post('/sessions/revoke',        [SessionController::class, 'revoke']);
+$router->post('/sessions/revoke-others', [SessionController::class, 'revokeOthers']);
 
 $router->get('/users',            [UserController::class,  'index']);
 $router->get('/users/create',     [UserController::class,  'create']);

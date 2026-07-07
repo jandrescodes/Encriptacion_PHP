@@ -15,6 +15,7 @@ class ActivityLog extends Model
     public const EVENT_USER_CREATED     = 'user_created';
     public const EVENT_USER_UPDATED     = 'user_updated';
     public const EVENT_USER_DELETED     = 'user_deleted';
+    public const EVENT_SESSION_REVOKED  = 'session_revoked';
 
     public function __construct(\mysqli $connection)
     {

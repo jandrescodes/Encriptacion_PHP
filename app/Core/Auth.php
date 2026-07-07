@@ -4,6 +4,7 @@ namespace App\Core;
 
 use App\Model\LoginAttempt;
 use App\Model\User;
+use App\Model\UserSession;
 
 class Auth
 {
@@ -157,10 +158,22 @@ class Auth
             return;
         }
 
+        session_regenerate_id(true);
         $_SESSION['user_id']       = $user['id'];
         $_SESSION['name']          = $user['first_name'];
         $_SESSION['is_admin']      = $user['is_admin'];
         $_SESSION['last_activity'] = time();
+
+        $sessionToken = bin2hex(random_bytes(32));
+        $_SESSION['session_token'] = $sessionToken;
+        UserSession::createTo(
+            $this->connection,
+            (int) $user['id'],
+            $sessionToken,
+            $_SERVER['REMOTE_ADDR'] ?? '',
+            $_SERVER['HTTP_USER_AGENT'] ?? '',
+            viaRemember: true
+        );
     }
 
     public function rememberTtl(): int

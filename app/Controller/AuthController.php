@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Core\Auth;
 use App\Core\Controller;
 use App\Model\ActivityLog;
+use App\Model\UserSession;
 use App\Service\MailerService;
 
 class AuthController extends Controller
@@ -69,6 +70,15 @@ class AuthController extends Controller
                     $_SESSION['message']       = "Welcome, " . $user['first_name'] . "!";
                     $_SESSION['icon']          = 'success';
 
+                    $sessionToken = bin2hex(random_bytes(32));
+                    $_SESSION['session_token'] = $sessionToken;
+                    (new UserSession($this->connection))->create(
+                        (int) $user['id'],
+                        $sessionToken,
+                        $_SERVER['REMOTE_ADDR'] ?? '',
+                        $_SERVER['HTTP_USER_AGENT'] ?? ''
+                    );
+
                     ActivityLog::log(ActivityLog::EVENT_LOGIN_SUCCESS, "Login: {$user['username']}", $user['id']);
 
                     if ($this->rememberEnabled() && !empty($_POST['remember'])) {
@@ -102,6 +112,10 @@ class AuthController extends Controller
         $userId = $_SESSION['user_id'] ?? null;
 
         ActivityLog::log(ActivityLog::EVENT_LOGOUT, 'User logged out', $userId ? (int) $userId : null);
+
+        if (!empty($_SESSION['session_token'])) {
+            (new UserSession($this->connection))->deleteByTokenHash(hash('sha256', $_SESSION['session_token']));
+        }
 
         if ($userId && isset($_COOKIE[self::REMEMBER_COOKIE])) {
             $this->auth->clearRememberToken((int) $userId);

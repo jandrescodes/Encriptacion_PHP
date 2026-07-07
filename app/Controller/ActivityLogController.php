@@ -20,6 +20,7 @@ class ActivityLogController extends Controller
         ActivityLog::EVENT_USER_CREATED     => ['label' => 'Usuario creado',          'class' => 'primary'],
         ActivityLog::EVENT_USER_UPDATED     => ['label' => 'Usuario actualizado',     'class' => 'primary'],
         ActivityLog::EVENT_USER_DELETED     => ['label' => 'Usuario eliminado',       'class' => 'dark'],
+        ActivityLog::EVENT_SESSION_REVOKED  => ['label' => 'Sesión revocada',         'class' => 'warning'],
     ];
 
     private const VALID_EVENTS = [
@@ -31,6 +32,7 @@ class ActivityLogController extends Controller
         ActivityLog::EVENT_USER_CREATED,
         ActivityLog::EVENT_USER_UPDATED,
         ActivityLog::EVENT_USER_DELETED,
+        ActivityLog::EVENT_SESSION_REVOKED,
     ];
 
     public function __construct(\mysqli $connection)
