@@ -54,3 +54,20 @@ CREATE TABLE IF NOT EXISTS `activity_logs` (
   KEY `idx_activity_logs_user_id`    (`user_id`),
   CONSTRAINT `fk_activity_logs_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+-- Table: user_sessions
+CREATE TABLE IF NOT EXISTS `user_sessions` (
+  `id`            int(11)      NOT NULL AUTO_INCREMENT,
+  `user_id`       int(11)      NOT NULL,
+  `token_hash`    char(64)     NOT NULL,
+  `ip_address`    varchar(45)           NULL DEFAULT NULL,
+  `user_agent`    varchar(255)          NULL DEFAULT NULL,
+  `via_remember`  tinyint(1)   NOT NULL DEFAULT 0,
+  `created_at`    datetime     NOT NULL DEFAULT current_timestamp(),
+  `last_activity` datetime     NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_session_token_hash`   (`token_hash`),
+  KEY `idx_session_user`            (`user_id`),
+  KEY `idx_session_last_activity`   (`last_activity`),
+  CONSTRAINT `fk_user_sessions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
