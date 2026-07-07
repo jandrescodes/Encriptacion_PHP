@@ -3,6 +3,7 @@
 namespace App\Middleware;
 
 use App\Core\Auth;
+use App\Model\UserSession;
 
 class AuthMiddleware
 {
@@ -51,5 +52,32 @@ class AuthMiddleware
         }
 
         $_SESSION['last_activity'] = time();
+    }
+
+    public static function session(\mysqli $connection): void
+    {
+        if (empty($_SESSION['user_id']) || empty($_SESSION['session_token'])) {
+            return;
+        }
+
+        if (!filter_var(env('ACTIVE_SESSIONS_ENABLED', true), FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+
+        $ttl   = (int) env('SESSION_TIMEOUT', 1800);
+        $hash  = hash('sha256', $_SESSION['session_token']);
+        $model = new UserSession($connection);
+
+        if (!$model->existsActive($hash, $ttl)) {
+            $model->deleteByTokenHash($hash);
+            session_destroy();
+            session_start_secure();
+            $_SESSION['message'] = 'Your session has been revoked. Please log in again.';
+            $_SESSION['icon']    = 'warning';
+            header('Location: ' . APP_URL . '/login');
+            exit;
+        }
+
+        $model->touch($hash);
     }
 }
