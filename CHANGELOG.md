@@ -6,6 +6,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 > Note: Entries before `1.3.1` may reference legacy paths (`config/`, `controllers/`, `model/`) that were moved to `app/Config/`, `app/Controller/`, and `app/Model/`.
 
+## [1.14.1] — 2026-07-15
+
+### Fixed
+
+- **Weak password bypass via password reset** — `AuthController::resetPassword()` only checked that `new_password` matched `confirm_password`, never enforcing the 8-character minimum already required by `ProfileController::changePassword()` and `UserController::validateUser()`. A valid reset token could be used to set an empty or trivially short password. Now enforces `strlen($newPassword) >= 8` before calling `Auth::consumeResetToken()`.
+
+### Changed
+
+- `CLAUDE.md` — removed two Notes bullets duplicating facts already covered in the Key Files table and Security Patterns section (`session_start_secure()` usage, `AuthMiddleware::session()` wiring); documented the resetPassword fix above
+- `README.md` — restructured for a public-facing audience:
+  - Added Table of Contents and a Screenshots section (title + description + image per feature, no tables)
+  - `Features` reorganized into three grouped categories instead of a 25-bullet list that duplicated the `Security` section's implementation detail; cross-linked to `Security` for specifics
+  - `Installation` no longer pastes the full `.env` contents — points to `.env.example` instead
+  - `Project Structure` reduced from a fully-annotated recursive tree to a 2-level overview, with a pointer to `CLAUDE.md` for the file-by-file breakdown
+  - Fixed a stale/vague comment in the `Testing` setup instructions referencing a non-existent "`.env.testing` section in docs"
+
 ## [1.14.0] — 2026-07-07
 
 ### Added

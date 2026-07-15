@@ -47,7 +47,7 @@ SMTP_PORT=587
 
 APP_URL=http://localhost/Encriptacion_PHP/public
 APP_TIMEZONE=America/Bogota
-APP_VERSION=1.14.0
+APP_VERSION=1.14.1
 
 CACHE_ENABLED=true
 CACHE_TTL_USERS=60
@@ -246,6 +246,7 @@ Loaded **only** on pages that set `$useDataTables = true`. The flag loads the fu
 - **CSRF**: `App\Core\Csrf::token()` generates a `bin2hex(random_bytes(32))` token stored in `$_SESSION['csrf_token']`; all POST forms include `<input type="hidden" name="_csrf">` with this value; controllers call `$this->verifyCsrf($redirectPath)` which uses `hash_equals()` to compare — prevents timing attacks; token is **rotated** after each successful verification (`unset($_SESSION['csrf_token'])` in `Csrf::verify()`)
 - **Logout is POST-only** — `/logout` route only accepts POST; `header.php` renders a `<form>` with CSRF token; `AuthController::logout()` calls `verifyCsrf()` before processing — prevents logout CSRF via `<img>` or link
 - Reset tokens: `bin2hex(random_bytes(32))` raw token sent in email URL; SHA-256 hash stored in `password_resets.token` — 1-hour expiry, single-use (`used = 1` after consumption)
+- **Password reset minimum length**: `AuthController::resetPassword()` enforces the same 8-character minimum as `ProfileController::changePassword()` and `UserController::validateUser()` before calling `consumeResetToken()` — previously only checked `new_password === confirm_password`, allowing arbitrarily short/empty passwords via the reset flow (fixed 2026-07-15)
 - **User enumeration prevention**: `AuthController::forgotPassword()` always returns the same generic message regardless of whether the email is registered — email is sent silently if the token was created
 - All DB queries in `app/Model/User.php` use MySQLi prepared statements
 - Email sanitized with `filter_var($email, FILTER_SANITIZE_EMAIL)` before DB queries
@@ -318,5 +319,3 @@ composer test:integration  # Auth class only
 - Error/success messages use unified session flash: `$_SESSION['message']` and `$_SESSION['icon']`. Rendered via `views/layouts/messages.php`. Never pass them via URL query params
 - Auth views use `<button type="submit">` (not `<input type="submit">`); POST detection uses `isset($_POST['btnXXX'])` — not `!empty()` — since `<button>` without a `value` attribute submits an empty string
 - User delete flow uses `.js-delete-user` buttons with `data-delete-url`, `data-name`, `data-username`; confirmation handled in `public/js/users-delete.js`
-- `session_start_secure()` is called in `app/Config/autoload.php` — always use this helper instead of bare `session_start()` to ensure `httponly`/`samesite`/`secure` options are applied; `Auth::restoreFromCookie()` runs immediately after on every request
-- `AuthMiddleware::session()` is currently only wired into `SessionController::guard()` (after `timeout()`, before `auth()`) — other protected controllers do not yet check session revocation; if that changes, keep `timeout() → session() → auth()` order since `session()` needs `$_SESSION['session_token']` to still be present
