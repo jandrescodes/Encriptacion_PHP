@@ -163,6 +163,12 @@ class AuthController extends Controller
                 $this->redirect('/reset-password?token=' . urlencode($token));
             }
 
+            if (strlen($newPassword) < 8) {
+                $_SESSION['message'] = 'Password must be at least 8 characters long';
+                $_SESSION['icon']    = 'warning';
+                $this->redirect('/reset-password?token=' . urlencode($token));
+            }
+
             $email = $this->auth->consumeResetToken($token, $newPassword);
 
             if ($email) {
