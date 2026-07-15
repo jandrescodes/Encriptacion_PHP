@@ -1,5 +1,5 @@
 {
-    "name": "jandres25/encriptacion-php",
+    "name": "jandrescodes/encriptacion-php",
     "description": "PHP MVC custom auth system with bcrypt and email recovery",
     "type": "project",
     "license": "MIT",

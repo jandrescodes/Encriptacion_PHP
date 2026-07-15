@@ -2,8 +2,8 @@
 
 # SecureAuth — PHP MVC Authentication System
 
-[![Version](https://img.shields.io/badge/version-1.14.1-blue.svg?style=flat-square)](https://github.com/Jandres25/Encriptacion_PHP/releases/tag/1.14.1)
-[![Tests](https://github.com/Jandres25/Encriptacion_PHP/actions/workflows/tests.yml/badge.svg)](https://github.com/Jandres25/Encriptacion_PHP/actions/workflows/tests.yml)
+[![Version](https://img.shields.io/badge/version-1.14.1-blue.svg?style=flat-square)](https://github.com/jandrescodes/Encriptacion_PHP/releases/tag/1.14.1)
+[![Tests](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml/badge.svg)](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml)
 [![PHP Version](https://img.shields.io/badge/PHP->=8.2-777BB4.svg?style=flat-square&logo=php)](https://php.net/)
 [![PHPMailer](https://img.shields.io/badge/PHPMailer-^6.9-1F3B5F.svg?style=flat-square)](https://github.com/PHPMailer/PHPMailer)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
@@ -94,7 +94,7 @@ Full audit trail with server-side filtering by event type, username, and date ra
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/Jandres25/Encriptacion_PHP.git
+git clone https://github.com/jandrescodes/Encriptacion_PHP.git
 cd Encriptacion_PHP
 ```
 
@@ -250,8 +250,8 @@ MIT License — see the `LICENSE` file for details.
 
 ---
 
-Jandres25 — jandrespb4@gmail.com
+jandrescodes — jandrespb4@gmail.com
 
-[https://github.com/Jandres25/Encriptacion_PHP](https://github.com/Jandres25/Encriptacion_PHP)
+[https://github.com/jandrescodes/Encriptacion_PHP](https://github.com/jandrescodes/Encriptacion_PHP)
 
 </div>
