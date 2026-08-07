@@ -6,6 +6,38 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 > Note: Entries before `1.3.1` may reference legacy paths (`config/`, `controllers/`, `model/`) that were moved to `app/Config/`, `app/Controller/`, and `app/Model/`.
 
+## [1.14.2] — 2026-08-07
+
+### Added
+
+- **Accessibility enhancements in the auth forms** (`login`, `forgot-password`, `reset-password`) targeting WCAG 2.1 AA:
+  - Real `<label for>` elements replace the `<h5>` floating-label placeholders; the unique page heading was promoted from `<h2>` to `<h1>` on every auth view
+  - `autocomplete` attributes on all fields — `username`, `current-password`, `email`, `new-password` — so password managers fill correctly
+  - The password-visibility toggle is now a real `<button type="button" aria-pressed aria-label>` (was a `<div>` with inline `onclick`) wired through a `main2.js` event listener, with a visible `:focus-visible` outline
+  - Decorative images and FontAwesome icons marked `alt="" aria-hidden="true"`; decorative `<i>` wrappers wrapped in `aria-hidden="true"`
+  - A `:focus-visible` accent outline on inputs and submit button — keyboard focus never depends on JS
+  - `prefers-reduced-motion: reduce` media query disables transitions/animations globally in `style.css`
+  - Remember-me checkbox enlarged from 15×15 to **24×24 px** (WCAG 2.5.8 minimum target size)
+  - Contrast fixes: labels/links use `--color-muted` (#5f6b73, ≈5.19:1 AA); the submit button switches to **dark text on the accent background** (white-on-accent was ≈2.8:1, below AA)
+- **Password-manager support for the reset form** — a visually-hidden `autocomplete="username"` field (`tabindex="-1"`, `aria-hidden="true"`) lets password managers associate the account, silencing Chromium's "Password forms should have a username field" warning
+- **Design tokens in `style.css:root`** (`--color-accent`, `--color-dark`, `--color-muted`, `--color-bg`, `--color-border`, `--color-text`, `--color-white`) replacing hardcoded hex values in auth CSS
+
+### Changed
+
+- **JS payload slimming in auth views** — `login.php`, `forgot_password.php` and `reset_password.php` now load only `main.js` + `main2.js`; jQuery, Popper, Bootstrap JS and the unconditional `sweetalert2.all.min.js` script tags were removed. `sweetalert2.all.min.js` now loads **conditionally** from `views/layouts/messages.php`, only when a session flash message exists
+- `body` uses `overflow-x: hidden` instead of `overflow: hidden` and the form container `min-height: 100vh`, eliminating horizontal scroll on narrow (375 px) viewports
+- `public/js/main.js` / `public/js/main2.js` cleaned up (formatting, IIFE scope for the toggle, trailing newline); `main2.js` targets `#password` by id instead of the previous `#input`
+
+### Removed
+
+- Dead CSS rules from `style.css`: the unused `.input-div>div>select` rule and the `.error` block
+- jQuery, Popper and Bootstrap JS dependencies from the standalone auth views
+
+### Documented
+
+- `CLAUDE.md` — auth-module section notes the palette tokens, accessible toggle, keyboard-focus baseline and the hidden username field; new "E2E / Browser testing" section covering the `playwright-cli` skill (Firefox headed / Brave via CDP)
+- New `AGENTS.md` — lean "things you'd get wrong" list (XAMPP serving, real-DB test prereqs, namespace mapping, POST-only + CSRF conventions, browser e2e) complementing `CLAUDE.md`
+
 ## [1.14.1] — 2026-07-15
 
 ### Fixed

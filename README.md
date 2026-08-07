@@ -2,7 +2,7 @@
 
 # SecureAuth — PHP MVC Authentication System
 
-[![Version](https://img.shields.io/badge/version-1.14.1-blue.svg?style=flat-square)](https://github.com/jandrescodes/Encriptacion_PHP/releases/tag/1.14.1)
+[![Version](https://img.shields.io/badge/version-1.14.2-blue.svg?style=flat-square)](https://github.com/jandrescodes/Encriptacion_PHP/releases/tag/1.14.2)
 [![Tests](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml/badge.svg)](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml)
 [![PHP Version](https://img.shields.io/badge/PHP->=8.2-777BB4.svg?style=flat-square&logo=php)](https://php.net/)
 [![PHPMailer](https://img.shields.io/badge/PHPMailer-^6.9-1F3B5F.svg?style=flat-square)](https://github.com/PHPMailer/PHPMailer)
@@ -14,18 +14,26 @@ Custom PHP MVC authentication system built with Composer, a lightweight router, 
 
 ## Table of Contents
 
-- [Screenshots](#screenshots)
-- [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Project Structure](#project-structure)
-- [Usage](#usage)
-- [URL Routing](#url-routing)
-- [Security](#security)
-- [Cache](#cache)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [License](#license)
+- [SecureAuth — PHP MVC Authentication System](#secureauth--php-mvc-authentication-system)
+  - [Table of Contents](#table-of-contents)
+  - [Screenshots](#screenshots)
+    - [Login](#login)
+    - [Dashboard](#dashboard)
+    - [Active Sessions](#active-sessions)
+    - [Activity Log](#activity-log)
+  - [Features](#features)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Project Structure](#project-structure)
+  - [Usage](#usage)
+  - [URL Routing](#url-routing)
+  - [Security](#security)
+  - [Cache](#cache)
+  - [Testing](#testing)
+    - [Local setup](#local-setup)
+    - [CI](#ci)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Screenshots
 
@@ -62,17 +70,21 @@ Full audit trail with server-side filtering by event type, username, and date ra
 ## Features
 
 **Authentication & Account Management**
+
 - Login with bcrypt password hashing, account lockout after repeated failed attempts, and email-based password recovery
 - Persistent login (Remember Me) and automatic session timeout on inactivity
 - Self-service user profile — edit personal info or change password at `/profile`
+- **Accessible auth forms (WCAG 2.1 AA)** — real `<label>`s, an `<h1>` per page, `autocomplete` on every field, a keyboard-focusable password toggle (`aria-pressed`), decorative images/icons hidden from assistive tech, a 24 px Remember-me target, contrast-safe text, and `prefers-reduced-motion` support; the reset form exposes a hidden `username` field so password managers associate the account
 
 **Administration**
+
 - Full user CRUD with role-based access control
 - Active sessions management — view and revoke logins per device at `/sessions`
 - Audit log of security and admin events, filterable and exportable, at `/activity-logs`
 - Dashboard with live metrics — total users, logins today, failed attempts, locked accounts
 
 **Architecture & Tooling**
+
 - Custom MVC core (`App\Core\Router`, `Controller`, `Model`) with PSR-4 autoloading via Composer
 - File-based cache for the users listing, with automatic invalidation on writes
 - DataTables-powered tables with export (Copy, PDF, Excel, CSV, Print) and column visibility toggle

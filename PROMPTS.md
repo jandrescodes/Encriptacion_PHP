@@ -335,6 +335,54 @@ Métodos a cubrir: [lista]
 
 ---
 
+## Plantilla 6 — Auditoría y arreglo de accesibilidad (a11y)
+
+Usar cuando: revisar/majorar la accesibilidad de un módulo (WCAG 2.1 AA) o replicar el patrón de accesibilidad ya aplicado en `views/auth/`.
+
+```
+[Rol]
+Actúa como especialista en accesibilidad web (WCAG 2.1/2.2 AA, WAI-ARIA) con experiencia
+en candidato de frontend PHP sin framework.
+
+[Contexto]
+Proyecto: Encriptacion_PHP — PHP MVC con Composer (sin framework).
+Módulo objetivo: [views/auth (standalone) | views protegidas con layout | otro]
+Criterio de evaluación: WCAG 2.1 AA con foco en contraste, keyboard, targets, reduced-motion.
+Verificación en navegador: skill playwright-cli (headless por defecto, o visible con --browser=firefox).
+
+[Tarea]
+Audita y/o corrige la accesibilidad de [archivo(s)] siguiendo el baseline ya documentado
+en CLAUDE.md (sección "Auth module (standalone views)"):
+- Un único <h1> por página; etiquetas reales <label for="..."> (no placeholders h5/div)
+- autocomplete en cada campo (username, current-password, new-password, email)
+- Iconos decorativos/avatars: alt="" + aria-hidden="true"
+- Toggle de ver contraseña: <button type="button" aria-pressed aria-label>, SIN onclick inline
+- :focus-visible visible en inputs/toggle/button; never depender del JS para el foco
+- prefers-reduced-motion: reduce en CSS
+- Targets: checkbox ≥ 24px (WCAG 2.5.8); hit box del toggle accesible
+- Contraste: labels/links en --color-muted (#5f6b73, ≥4.5:1); botón accent con texto dark (no blanco)
+
+[Restricciones]
+- No agregar librerías nuevas; no re-introducir jQuery/Popper/Bootstrap JS ni
+  sweetalert2 all.min.js incondicional en auth views — solo main.js + main2.js, y Swal
+  condicional en views/layouts/messages.php (solo si existe flash)
+- No hardcodear hex en el CSS de auth: usar los tokens de :root
+  (--color-accent, --color-dark, --color-muted, --color-bg, --color-border, --color-text, --color-white)
+- No tocar la copy en inglés de la views/auth
+- Cambios de estilo en public/css/style.css; headers de seguridad en public/.htaccess
+- Verificar con: php -l en todos los archivos tocados y el detector de impeccable
+  (node ~/.agents/skills/impeccable/scripts/detect.mjs --json <targets>) → debe devolver []
+
+[Formato de salida]
+1. Diagnóstico del estado actual vs checkout
+2. Lista de archivos que se crean/modifican
+3. Cambio en JS/CSS para cada hallazgo
+4. Checklist de verificación manual: contraste AA, foco por Tab, target sizes, móvil 375px,
+   prefers-reduced-motion, Swal solo con flash, login/forgot/reset probados in
+```
+
+---
+
 ## Ejemplo real — Tests de Auth + User (implementado en v1.6.0)
 
 > Prompt de infraestructura de tests bien estructurado — ver docs/plan-tests-integracion.md para el plan completo generado con Claude Opus.
@@ -477,5 +525,5 @@ Al final: queries SQL finales, consideraciones de seguridad, checklist de testin
 
 ---
 
-_Última actualización: 2026-07-07 — v1.14.0_
+_Última actualización: 2026-08-07 — Unreleased (se añadió Plantilla 6 — auditoría de accesibilidad)_
 _Mantener sincronizado con CLAUDE.md al agregar features nuevas._
