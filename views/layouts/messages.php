@@ -2,6 +2,7 @@
 if ((isset($_SESSION['message'])) && (isset($_SESSION['icon']))) {
     $message = $_SESSION['message'];
     $icon    = $_SESSION['icon']; ?>
+    <script src="<?= APP_URL ?>/js/sweetalert2.all.min.js"></script>
     <script>
         const Toast = Swal.mixin({
             toast: true,

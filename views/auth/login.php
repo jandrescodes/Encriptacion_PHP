@@ -10,35 +10,35 @@
     <link rel="stylesheet" href="<?= APP_URL ?>/css/all.min.css">
     <link href="<?= APP_URL ?>/img/candado.png" rel="shortcut icon">
     <link rel="stylesheet" href="<?= APP_URL ?>/css/sweetalert2.min.css">
-    <script src="<?= APP_URL ?>/js/sweetalert2.all.min.js"></script>
-    <script src="<?= APP_URL ?>/js/jquery.min.js"></script>
     <title>Login</title>
 </head>
 
 <body>
     <div class="container d-flex justify-content-center align-items-center">
-        <img class="wave" src="<?= APP_URL ?>/img/wave.png">
+        <img class="wave" src="<?= APP_URL ?>/img/wave.png" alt="" aria-hidden="true">
         <div class="login-content">
             <form method="post" action="<?= APP_URL ?>/login">
                 <input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">
-                <img src="<?= APP_URL ?>/img/avatar.svg">
-                <h2 class="title">WELCOME</h2>
+                <img src="<?= APP_URL ?>/img/avatar.svg" alt="" aria-hidden="true">
+                <h1 class="title">WELCOME</h1>
                 <div class="input-div one">
-                    <div class="i"><i class="fas fa-user"></i></div>
+                    <div class="i" aria-hidden="true"><i class="fas fa-user"></i></div>
                     <div class="div">
-                        <h5>Username</h5>
-                        <input id="usuario" type="text" class="input" name="usuario" required>
+                        <label for="usuario">Username</label>
+                        <input id="usuario" type="text" class="input" name="usuario" autocomplete="username" required>
                     </div>
                 </div>
                 <div class="input-div pass">
-                    <div class="i"><i class="fas fa-lock"></i></div>
+                    <div class="i" aria-hidden="true"><i class="fas fa-lock"></i></div>
                     <div class="div">
-                        <h5>Password</h5>
-                        <input type="password" id="input" class="input" name="password" required>
+                        <label for="password">Password</label>
+                        <input type="password" id="password" class="input" name="password" autocomplete="current-password" required>
                     </div>
                 </div>
                 <div class="view">
-                    <div class="fas fa-eye verPassword" onclick="vista()" id="verPassword"></div>
+                    <button type="button" id="verPassword" class="verPassword" aria-label="Show password" aria-pressed="false">
+                        <i class="fas fa-eye" aria-hidden="true"></i>
+                    </button>
                 </div>
                 <label class="remember-label" for="remember">
                     <input type="checkbox" id="remember" name="remember" value="1">
@@ -50,9 +50,6 @@
         </div>
     </div>
 
-    <script src="<?= APP_URL ?>/js/popper.min.js"></script>
-    <script src="<?= APP_URL ?>/js/bootstrap.min.js"></script>
-    <script src="<?= APP_URL ?>/js/sweetalert2.all.min.js"></script>
     <script src="<?= APP_URL ?>/js/main.js"></script>
     <script src="<?= APP_URL ?>/js/main2.js"></script>
 
