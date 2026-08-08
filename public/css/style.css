@@ -156,12 +156,6 @@ form {
 	font-family: inherit;
 }
 
-.input-div>div>input:focus-visible {
-	outline: 2px solid var(--color-accent);
-	outline-offset: 2px;
-	border-radius: 2px;
-}
-
 .input-div.pass {
 	margin-bottom: 4px;
 }
@@ -303,6 +297,7 @@ a:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
 	*,
 	*::before,
 	*::after {
