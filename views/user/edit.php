@@ -53,7 +53,7 @@
                             <span class="input-group-text"><i class="fas fa-lock"></i></span>
                         </div>
                         <input type="password" class="form-control" name="password" id="password"
-                            placeholder="Leave blank to keep current password">
+                            placeholder="Leave blank to keep current password" autocomplete="new-password">
                     </div>
                     <small class="form-text text-muted">Leave blank to keep current password</small>
                 </div>

@@ -55,6 +55,8 @@ class UserController extends Controller
             if ($error) {
                 $_SESSION['message'] = $error;
                 $_SESSION['icon']    = 'error';
+                $_SESSION['old']     = $data;
+                unset($_SESSION['old']['password']);
                 $this->redirect('/users/create');
             }
 
@@ -70,8 +72,12 @@ class UserController extends Controller
             $this->redirect('/users/create');
         }
 
+        $old = $_SESSION['old'] ?? [];
+        unset($_SESSION['old']);
+
         $this->render('user/create.php', [
             'pageTitle' => 'Create User — SecureAuth',
+            'old'       => $old,
         ], protected: true);
     }
 
@@ -103,6 +109,8 @@ class UserController extends Controller
             if ($error) {
                 $_SESSION['message'] = $error;
                 $_SESSION['icon']    = 'error';
+                $_SESSION['old']     = $data;
+                unset($_SESSION['old']['password']);
                 $this->redirect('/users/edit?id=' . $id);
             }
 
@@ -127,9 +135,12 @@ class UserController extends Controller
             $this->redirect('/users');
         }
 
+        $old = $_SESSION['old'] ?? [];
+        unset($_SESSION['old']);
+
         $this->render('user/edit.php', [
             'pageTitle' => 'Edit User — SecureAuth',
-            'user'      => $user,
+            'user'      => $old ? array_merge($user, $old) : $user,
         ], protected: true);
     }
 

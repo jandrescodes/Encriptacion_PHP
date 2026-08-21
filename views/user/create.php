@@ -12,6 +12,7 @@
                             <span class="input-group-text"><i class="fas fa-user"></i></span>
                         </div>
                         <input type="text" class="form-control" name="first_name" id="first_name"
+                            value="<?= htmlspecialchars($old['first_name'] ?? '') ?>"
                             placeholder="e.g. John" required>
                     </div>
                 </div>
@@ -22,6 +23,7 @@
                             <span class="input-group-text"><i class="fas fa-user"></i></span>
                         </div>
                         <input type="text" class="form-control" name="last_name" id="last_name"
+                            value="<?= htmlspecialchars($old['last_name'] ?? '') ?>"
                             placeholder="e.g. Doe" required>
                     </div>
                 </div>
@@ -32,6 +34,7 @@
                             <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                         </div>
                         <input type="email" class="form-control" name="email" id="email"
+                            value="<?= htmlspecialchars($old['email'] ?? '') ?>"
                             placeholder="e.g. john@gmail.com">
                     </div>
                     <small class="form-text text-muted">Required for password recovery</small>
@@ -43,6 +46,7 @@
                             <span class="input-group-text"><i class="fas fa-user"></i></span>
                         </div>
                         <input type="text" class="form-control" name="username" id="username"
+                            value="<?= htmlspecialchars($old['username'] ?? '') ?>"
                             placeholder="e.g. john10" required>
                     </div>
                 </div>
@@ -53,12 +57,13 @@
                             <span class="input-group-text"><i class="fas fa-lock"></i></span>
                         </div>
                         <input type="password" class="form-control" name="password" id="password"
-                            placeholder="Password" required>
+                            placeholder="Password" autocomplete="new-password" required>
                     </div>
                     <small class="form-text text-muted">Required. At least 8 characters.</small>
                 </div>
                 <div class="form-check">
-                    <input type="checkbox" class="form-check-input" name="is_admin" id="is_admin" value="1">
+                    <input type="checkbox" class="form-check-input" name="is_admin" id="is_admin" value="1"
+                        <?= !empty($old['is_admin']) ? 'checked' : '' ?>>
                     <label class="form-check-label" for="is_admin">Administrator</label>
                 </div>
             </div>
