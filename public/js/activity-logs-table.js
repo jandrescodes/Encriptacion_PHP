@@ -41,6 +41,8 @@ $(document).ready(function () {
             {
                 extend: 'collection',
                 text: 'Reportes',
+                titleAttr: 'Exportar registro de auditoría',
+                attr: { 'aria-label': 'Exportar registro de auditoría' },
                 orientation: 'landscape',
                 buttons: [
                     {
@@ -125,17 +127,47 @@ $(document).ready(function () {
             },
             {
                 extend: 'colvis',
-                text: 'Columnas'
+                text: 'Columnas',
+                titleAttr: 'Mostrar u ocultar columnas',
+                attr: { 'aria-label': 'Mostrar u ocultar columnas' }
             }
         ],
         initComplete: function () {
             $(this.api().table().node()).css('visibility', 'visible');
+        },
+        drawCallback: function (settings) {
+            var total = settings.json ? settings.json.recordsFiltered : 0;
+            $('#activity_log_status').text(total + ' eventos encontrados.');
         }
     });
 
     table.buttons().container().appendTo('#activity_log_table_wrapper .col-md-6:eq(0)');
 
-    $('#btn-filter').on('click', function () {
+    var $btnFilter = $('#btn-filter');
+    var $btnFilterLabel = $btnFilter.find('.btn-filter-label');
+    var btnFilterOriginalLabel = $btnFilterLabel.text();
+
+    $btnFilter.on('click', function () {
         table.ajax.reload();
     });
+
+    $('#activity_log_table').on('processing.dt', function (e, settings, processing) {
+        $btnFilter.prop('disabled', processing).attr('aria-busy', processing);
+        $btnFilterLabel.text(processing ? 'Filtrando…' : btnFilterOriginalLabel);
+    });
+
+    $('.js-filters-toggle').on('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            $(this).click();
+        }
+    });
+
+    $('#filtersCollapse')
+        .on('shown.bs.collapse', function () {
+            $('.js-filters-toggle').attr('aria-expanded', 'true');
+        })
+        .on('hidden.bs.collapse', function () {
+            $('.js-filters-toggle').attr('aria-expanded', 'false');
+        });
 });

@@ -15,15 +15,16 @@ $eventLabels = [
 
     <!-- Filtros -->
     <div class="card shadow-sm mb-3">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center"
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center js-filters-toggle"
             data-toggle="collapse" data-target="#filtersCollapse"
-            style="cursor: pointer;">
-            <span><i class="fas fa-filter mr-1"></i> Filtros</span>
+            role="button" tabindex="0"
+            aria-expanded="<?= $hasActiveFilters ? 'true' : 'false' ?>" aria-controls="filtersCollapse">
+            <span><i class="fas fa-filter mr-1" aria-hidden="true"></i> Filtros</span>
             <span>
                 <?php if ($hasActiveFilters): ?>
                     <span class="badge badge-warning mr-2">Activos</span>
                 <?php endif; ?>
-                <i class="fas fa-chevron-down"></i>
+                <i class="fas fa-chevron-down" aria-hidden="true"></i>
             </span>
         </div>
         <div id="filtersCollapse" class="collapse<?= $hasActiveFilters ? ' show' : '' ?>">
@@ -67,7 +68,8 @@ $eventLabels = [
                     </div>
                     <div class="d-flex align-items-center">
                         <button type="button" id="btn-filter" class="btn btn-app-primary btn-sm mr-2">
-                            <i class="fas fa-search mr-1"></i>Filtrar
+                            <i class="fas fa-search mr-1" aria-hidden="true"></i>
+                            <span class="btn-filter-label">Filtrar</span>
                         </button>
                         <a href="<?= APP_URL ?>/activity-logs" class="btn btn-outline-secondary btn-sm">
                             <i class="fas fa-times mr-1"></i>Limpiar
@@ -84,6 +86,7 @@ $eventLabels = [
             <i class="fas fa-history mr-1"></i> All Events
         </div>
         <div class="card-body">
+            <div id="activity_log_status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
             <table class="table table-hover table-bordered" id="activity_log_table" style="visibility: hidden;">
                 <thead>
                     <tr>

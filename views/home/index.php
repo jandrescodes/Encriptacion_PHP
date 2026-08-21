@@ -1,7 +1,7 @@
 <!-- Hero -->
 <section class="hero text-white text-center">
     <div class="container py-5">
-        <i class="fas fa-user-circle fa-4x mb-3 text-light"></i>
+        <i class="fas fa-user-circle fa-4x mb-3 text-light" aria-hidden="true"></i>
         <h1 class="display-4 font-weight-bold mb-2">
             Welcome, <?= htmlspecialchars($name) ?>
         </h1>
@@ -24,7 +24,7 @@
             <div class="card h-100 shadow-sm text-center">
                 <div class="card-body py-4">
                     <div class="feature-icon text-white mx-auto mb-3" style="background-color: var(--color-dark);">
-                        <i class="fas fa-users"></i>
+                        <i class="fas fa-users" aria-hidden="true"></i>
                     </div>
                     <h2 class="font-weight-bold mb-1"><?= (int) $totalUsers ?></h2>
                     <p class="text-muted mb-0">Usuarios registrados</p>
@@ -34,8 +34,8 @@
         <div class="col-md-3 mb-4">
             <div class="card h-100 shadow-sm text-center">
                 <div class="card-body py-4">
-                    <div class="feature-icon text-white mx-auto mb-3" style="background-color: #28a745;">
-                        <i class="fas fa-check-circle"></i>
+                    <div class="feature-icon text-white mx-auto mb-3 bg-success">
+                        <i class="fas fa-check-circle" aria-hidden="true"></i>
                     </div>
                     <h2 class="font-weight-bold text-success mb-1"><?= (int) $loginsToday ?></h2>
                     <p class="text-muted mb-0">Logins exitosos hoy</p>
@@ -45,8 +45,8 @@
         <div class="col-md-3 mb-4">
             <div class="card h-100 shadow-sm text-center">
                 <div class="card-body py-4">
-                    <div class="feature-icon text-white mx-auto mb-3" style="background-color: #ffc107;">
-                        <i class="fas fa-times-circle"></i>
+                    <div class="feature-icon text-white mx-auto mb-3 bg-warning">
+                        <i class="fas fa-times-circle" aria-hidden="true"></i>
                     </div>
                     <h2 class="font-weight-bold text-warning mb-1"><?= (int) $failedToday ?></h2>
                     <p class="text-muted mb-0">Intentos fallidos hoy</p>
@@ -56,8 +56,8 @@
         <div class="col-md-3 mb-4">
             <div class="card h-100 shadow-sm text-center">
                 <div class="card-body py-4">
-                    <div class="feature-icon text-white mx-auto mb-3" style="background-color: #dc3545;">
-                        <i class="fas fa-lock"></i>
+                    <div class="feature-icon text-white mx-auto mb-3 bg-danger">
+                        <i class="fas fa-lock" aria-hidden="true"></i>
                     </div>
                     <h2 class="font-weight-bold text-danger mb-1"><?= (int) $lockedNow ?></h2>
                     <p class="text-muted mb-0">Cuentas bloqueadas</p>
@@ -68,8 +68,8 @@
 
     <!-- Recent activity -->
     <div class="card shadow-sm mt-2">
-        <div class="card-header d-flex justify-content-between align-items-center" style="background-color: var(--color-dark); color: #fff;">
-            <span><i class="fas fa-clock mr-2"></i>Actividad reciente</span>
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-clock mr-2" aria-hidden="true"></i>Actividad reciente</span>
             <?php if ($isAdmin): ?>
                 <a href="<?= APP_URL ?>/activity-logs" class="btn btn-sm btn-app-primary">Ver todo</a>
             <?php endif; ?>

@@ -34,8 +34,6 @@
                         <label for="password">Password</label>
                         <input type="password" id="password" class="input" name="password" autocomplete="current-password" required>
                     </div>
-                </div>
-                <div class="view">
                     <button type="button" id="verPassword" class="verPassword" aria-label="Show password" aria-pressed="false">
                         <i class="fas fa-eye" aria-hidden="true"></i>
                     </button>

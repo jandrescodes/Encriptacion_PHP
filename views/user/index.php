@@ -41,8 +41,9 @@
                             <td class="text-center no-export">
                                 <div class="btn-group">
                                     <a class="btn btn-sm btn-outline-success"
-                                        href="<?= APP_URL ?>/users/edit?id=<?= $user['id'] ?>" role="button">
-                                        <i class="fas fa-user-edit"></i>
+                                        href="<?= APP_URL ?>/users/edit?id=<?= $user['id'] ?>" role="button"
+                                        aria-label="Edit user <?= htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8') ?>">
+                                        <i class="fas fa-user-edit" aria-hidden="true"></i>
                                     </a>
                                     <button
                                         type="button"
@@ -50,8 +51,9 @@
                                         data-id="<?= $user['id'] ?>"
                                         data-csrf="<?= \App\Core\Csrf::token() ?>"
                                         data-name="<?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name'], ENT_QUOTES, 'UTF-8') ?>"
-                                        data-username="<?= htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8') ?>">
-                                        <i class="fas fa-user-minus"></i>
+                                        data-username="<?= htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8') ?>"
+                                        aria-label="Delete user <?= htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8') ?>">
+                                        <i class="fas fa-user-minus" aria-hidden="true"></i>
                                     </button>
                                 </div>
                             </td>

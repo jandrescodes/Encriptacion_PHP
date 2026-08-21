@@ -1,5 +1,5 @@
 <section class="container mb-4" style="max-width: 720px;">
-    <h2 class="mb-4"><i class="fas fa-id-card mr-2"></i>My Profile</h2>
+    <h1 class="h2 mb-4"><i class="fas fa-id-card mr-2" aria-hidden="true"></i>My Profile</h1>
 
     <!-- Form 1: Profile info -->
     <div class="card shadow-sm mb-4">
@@ -34,7 +34,7 @@
                             <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                         </div>
                         <input type="email" class="form-control" name="email" id="email"
-                            value="<?= htmlspecialchars($user['email']) ?>" required>
+                            value="<?= htmlspecialchars($user['email']) ?>" autocomplete="email" required>
                     </div>
                 </div>
                 <div class="mb-3">
@@ -44,7 +44,7 @@
                             <span class="input-group-text"><i class="fas fa-at"></i></span>
                         </div>
                         <input type="text" class="form-control" name="username" id="username"
-                            value="<?= htmlspecialchars($user['username']) ?>" required>
+                            value="<?= htmlspecialchars($user['username']) ?>" autocomplete="username" required>
                     </div>
                 </div>
             </div>
@@ -69,7 +69,7 @@
                             <span class="input-group-text"><i class="fas fa-lock"></i></span>
                         </div>
                         <input type="password" class="form-control" name="current_password"
-                            id="current_password" required>
+                            id="current_password" autocomplete="current-password" required>
                     </div>
                 </div>
                 <div class="mb-3">
@@ -79,7 +79,7 @@
                             <span class="input-group-text"><i class="fas fa-key"></i></span>
                         </div>
                         <input type="password" class="form-control" name="new_password"
-                            id="new_password" minlength="8" required>
+                            id="new_password" minlength="8" autocomplete="new-password" required>
                     </div>
                     <small class="form-text text-muted">Minimum 8 characters</small>
                 </div>
@@ -90,7 +90,7 @@
                             <span class="input-group-text"><i class="fas fa-key"></i></span>
                         </div>
                         <input type="password" class="form-control" name="confirm_password"
-                            id="confirm_password" minlength="8" required>
+                            id="confirm_password" minlength="8" autocomplete="new-password" required>
                     </div>
                 </div>
             </div>

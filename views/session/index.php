@@ -1,5 +1,5 @@
 <section class="container-fluid mb-3">
-    <h2 class="mb-3"><i class="fas fa-desktop mr-2"></i>Active Sessions</h2>
+    <h1 class="h2 mb-3"><i class="fas fa-desktop mr-2" aria-hidden="true"></i>Active Sessions</h1>
 
     <div class="card shadow-sm">
         <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
@@ -14,6 +14,7 @@
             <?php endif; ?>
         </div>
         <div class="card-body">
+            <div class="table-responsive">
             <table class="table table-hover table-bordered mb-0">
                 <thead>
                     <tr>
@@ -22,7 +23,7 @@
                         <th>Created</th>
                         <th>Last activity</th>
                         <th>Status</th>
-                        <th class="no-export">Actions</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -44,7 +45,7 @@
                                     <span class="badge badge-secondary">Active</span>
                                 <?php endif; ?>
                             </td>
-                            <td class="no-export">
+                            <td>
                                 <?php if ((int) $session['is_current'] === 1): ?>
                                     <button type="button" class="btn btn-outline-danger btn-sm" disabled>
                                         <i class="fas fa-times mr-1"></i>Revoke
@@ -61,6 +62,7 @@
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 </section>

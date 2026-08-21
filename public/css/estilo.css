@@ -23,6 +23,16 @@
   color: #fff;
 }
 
+/* Header colapsable clicable/enfocable (ej. filtros de activity-log) */
+.js-filters-toggle {
+  cursor: pointer;
+}
+
+.js-filters-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
 .cabeza {
   /*background-image: url("../img/1.jpg");*/
   /*width: 100%;*/
@@ -75,8 +85,9 @@ input {
   padding: 10px;
 }
 
-input:focus {
-  outline: solid rgb(158, 158, 158) 2px;
+input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 
 .cuenta {
