@@ -525,5 +525,5 @@ Al final: queries SQL finales, consideraciones de seguridad, checklist de testin
 
 ---
 
-_Última actualización: 2026-08-07 — Unreleased (se añadió Plantilla 6 — auditoría de accesibilidad)_
+_Última actualización: 2026-08-21 — v1.14.3 (a11y en home/profile/session/activity-log/user + old-input en user create/edit; sin ejemplo nuevo, cubierto por Plantilla 6)_
 _Mantener sincronizado con CLAUDE.md al agregar features nuevas._

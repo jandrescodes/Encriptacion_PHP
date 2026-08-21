@@ -30,6 +30,7 @@ Custom PHP MVC auth system (SecureAuth). PHP >= 8.2, MySQL/MariaDB, no build ste
 - Security headers are in `public/.htaccess` (mod_headers) — modify there.
 - Cache: file-backed (`libs/Cache/FileCache.php`), key `users.all`, `CACHE_ENABLED=false` in `.env.testing` and forced by `phpunit.xml`.
 - Flash notifications travel via `$_SESSION['message']`+`$_SESSION['icon']`, never URL params.
+- Old-input retention on validation errors (`UserController::create()`/`edit()`): non-password fields go in `$_SESSION['old']` before the redirect, read once and `unset()` on the next GET — same one-shot pattern as flash messages.
 
 ## Browser / e2e
 

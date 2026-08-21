@@ -6,6 +6,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 > Note: Entries before `1.3.1` may reference legacy paths (`config/`, `controllers/`, `model/`) that were moved to `app/Config/`, `app/Controller/`, and `app/Model/`.
 
+## [1.14.3] — 2026-08-21
+
+### Added
+
+- **Old-input retention on user create/edit validation errors** — `UserController::create()` and `UserController::edit()` now stash submitted (non-password) fields in `$_SESSION['old']` on validation failure and rehydrate the form on redirect, so admins no longer have to retype the whole form after a single field error
+- **Accessibility pass across `home`, `profile`, `session`, `activity-log` and `user` views**:
+  - `views/profile/index.php` and `views/session/index.php` now open with a real `<h1>` (was `<h2>`, leaving the page without a top-level heading) and mark decorative FontAwesome icons `aria-hidden="true"`
+  - `views/home/index.php` stat-card and header icons marked `aria-hidden="true"`
+  - `views/activity-log/index.php`: the collapsible filters header is keyboard-operable (`role="button" tabindex="0"`, `aria-expanded`/`aria-controls` kept in sync via `shown.bs.collapse`/`hidden.bs.collapse` in `activity-logs-table.js`), the Filtrar button announces a busy state (`aria-busy`, label swaps to "Filtrando…") while DataTables reloads, and an `aria-live="polite"` status region reports the result count after each fetch
+  - `views/user/index.php` edit/delete row action icon-buttons now carry `aria-label="Edit/Delete user <username>"` since their only visible content is an icon
+  - `activity-logs-table.js` export/colvis buttons carry `aria-label`/`titleAttr` for their icon-only rendering
+- `public/css/estilo.css`: `:focus-visible` outline (accent color) on the collapsible filters header and on plain `input` elements, replacing an unconditional `:focus` outline
+
+### Changed
+
+- `views/user/create.php` / `views/user/edit.php`: password fields carry `autocomplete="new-password"`
+- `public/css/style.css`: removed the now-unused `.view` wrapper class; `views/auth/login.php` folds the password-visibility toggle button into `.input-div.pass` (`position: relative`) instead of a separate `.view` container; `.verPassword` repositioned with `top/right` instead of a hardcoded negative `margin-top`; added a `max-width: 340px` breakpoint tweak for very narrow viewports
+
 ## [1.14.2] — 2026-08-07
 
 ### Added
