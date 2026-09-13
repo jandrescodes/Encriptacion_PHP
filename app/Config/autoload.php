@@ -17,7 +17,7 @@ function session_start_secure(): void
         'path'     => '/',
         'secure'   => str_starts_with(env('APP_URL', ''), 'https'),
         'httponly' => true,
-        'samesite' => 'Strict',
+        'samesite' => 'Lax',
     ]);
     session_start();
 }

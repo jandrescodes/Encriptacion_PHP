@@ -31,6 +31,8 @@ Custom PHP MVC auth system (SecureAuth). PHP >= 8.2, MySQL/MariaDB, no build ste
 - Cache: file-backed (`libs/Cache/FileCache.php`), key `users.all`, `CACHE_ENABLED=false` in `.env.testing` and forced by `phpunit.xml`.
 - Flash notifications travel via `$_SESSION['message']`+`$_SESSION['icon']`, never URL params.
 - Old-input retention on validation errors (`UserController::create()`/`edit()`): non-password fields go in `$_SESSION['old']` before the redirect, read once and `unset()` on the next GET — same one-shot pattern as flash messages.
+- **Session cookie `SameSite=Lax` (NOT Strict)** in `app/Config/autoload.php::session_start_secure()`. Strict would withhold the cookie on the cross-site top-level navigation Google's OAuth callback makes (`accounts.google.com` → `localhost`), so PHP starts a fresh session, the one-shot `state` no longer matches, and `googleCallback()` bounces back to `/login` with "Invalid OAuth state" — real bug hit on 2026-09-12. `Lax` still blocks cross-site POST (CSRF) while allowing the OAuth GET navigation. The `remember_me` cookie (AuthController) stays `Strict` — it is only set and consumed on same-site requests.
+- **Google OAuth (login with Google)**: feature flag `OAUTH_GOOGLE_ENABLED` off by default; routes/button no-op with flash when off. Users with `password = NULL` must never reach `password_verify()` — reject via `User::rejectPasswordLogin()` (`app/Core/Auth::passwordLoginErrorMessage()`). Accounts with `oauth_provider` set can "set a password" from the profile (hybrid account); forgot/reset password refuses OAuth accounts. Tests never use real Google credentials.
 
 ## Browser / e2e
 
