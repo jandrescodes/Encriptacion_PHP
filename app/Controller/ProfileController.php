@@ -94,16 +94,26 @@ class ProfileController extends Controller
             $this->redirect('/profile');
         }
 
-        $hash = $this->userModel->getPasswordById($id);
+        $user = $this->userModel->getById($id);
 
-        if (!$hash || !password_verify($current, $hash)) {
-            $_SESSION['message'] = 'Current password is incorrect';
+        if (!$user) {
+            $_SESSION['message'] = 'User not found';
             $_SESSION['icon']    = 'error';
             $this->redirect('/profile');
         }
 
+        if (!User::isOAuthAccount($user)) {
+            $hash = $this->userModel->getPasswordById($id);
+
+            if (!$hash || !password_verify($current, $hash)) {
+                $_SESSION['message'] = 'Current password is incorrect';
+                $_SESSION['icon']    = 'error';
+                $this->redirect('/profile');
+            }
+        }
+
         if ($this->userModel->updatePasswordProfile($id, $new)) {
-            ActivityLog::log(ActivityLog::EVENT_PASSWORD_CHANGED, 'Password changed via profile', $id);
+            ActivityLog::log(ActivityLog::EVENT_PASSWORD_CHANGED, 'Password set via profile', $id);
             $_SESSION['message'] = 'Password updated successfully';
             $_SESSION['icon']    = 'success';
         } else {

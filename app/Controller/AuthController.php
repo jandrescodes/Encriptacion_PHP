@@ -62,6 +62,13 @@ class AuthController extends Controller
                     $this->redirect('/login');
                 }
 
+                $rejectMessage = $this->auth->passwordLoginErrorMessage($identifier);
+                if ($rejectMessage) {
+                    $_SESSION['message'] = $rejectMessage;
+                    $_SESSION['icon']    = 'warning';
+                    $this->redirect('/login');
+                }
+
                 $user = $this->auth->verifyCredentials($identifier, $_POST['password']);
 
                 if ($user) {
@@ -138,6 +145,14 @@ class AuthController extends Controller
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnrecuperar'])) {
             $this->verifyCsrf('/forgot-password');
             $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+
+            $user = (new User($this->connection))->getByEmail($email);
+            if ($user && User::isOAuthAccount($user)) {
+                $_SESSION['message'] = 'This account uses Google sign-in. No password reset needed.';
+                $_SESSION['icon']    = 'info';
+                $this->redirect('/forgot-password');
+            }
+
             $token = $this->auth->createPasswordResetToken($email);
 
             if ($token) {

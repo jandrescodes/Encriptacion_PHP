@@ -58,10 +58,13 @@
 
     <!-- Form 2: Change password -->
     <div class="card shadow-sm">
-        <div class="card-header bg-dark text-white">Change Password</div>
+        <div class="card-header bg-dark text-white">
+            <?= !empty($user['oauth_provider']) ? 'Set a Password' : 'Change Password' ?>
+        </div>
         <form action="<?= APP_URL ?>/profile/password" method="post">
             <input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">
             <div class="card-body">
+                <?php if (empty($user['oauth_provider'])): ?>
                 <div class="mb-3">
                     <label for="current_password" class="form-label">Current Password</label>
                     <div class="input-group">
@@ -72,6 +75,11 @@
                             id="current_password" autocomplete="current-password" required>
                     </div>
                 </div>
+                <?php else: ?>
+                <p class="text-muted mb-3">
+                    Your account uses Google sign-in. You can set a password to also log in with your username.
+                </p>
+                <?php endif; ?>
                 <div class="mb-3">
                     <label for="new_password" class="form-label">New Password</label>
                     <div class="input-group">
@@ -96,7 +104,8 @@
             </div>
             <div class="card-footer">
                 <button type="submit" name="change_password" class="btn btn-app-primary">
-                    <i class="fas fa-shield-alt mr-1"></i> Update Password
+                    <i class="fas fa-shield-alt mr-1"></i>
+                    <?= !empty($user['oauth_provider']) ? 'Set Password' : 'Update Password' ?>
                 </button>
             </div>
         </form>

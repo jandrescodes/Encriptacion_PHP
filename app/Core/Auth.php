@@ -57,11 +57,18 @@ class Auth
         $this->attempts->clear($identifier);
     }
 
+    public function passwordLoginErrorMessage(string $username): ?string
+    {
+        $user = $this->userModel->getByUsername($username);
+
+        return $user ? User::rejectPasswordLogin($user) : null;
+    }
+
     public function verifyCredentials(string $username, string $password): ?array
     {
         $user = $this->userModel->getByUsername($username);
 
-        if (!$user || !password_verify($password, $user['password'])) {
+        if (!$user || User::rejectPasswordLogin($user) !== null || !password_verify($password, $user['password'])) {
             return null;
         }
 
@@ -123,6 +130,12 @@ class Auth
             return null;
         }
 
+        $user = $this->userModel->getByEmail($reset['email']);
+
+        if ($user === null || User::isOAuthAccount($user)) {
+            return null;
+        }
+
         $this->userModel->updatePassword($reset['email'], $newPassword);
 
         $stmt = $this->connection->prepare("UPDATE password_resets SET used = 1 WHERE token = ?");
@@ -132,10 +145,7 @@ class Auth
 
         // Clear lockout for both email and username (either could have been used at login).
         $this->clearFailedAttempts($reset['email']);
-        $user = $this->userModel->getByEmail($reset['email']);
-        if ($user) {
-            $this->clearFailedAttempts($user['username']);
-        }
+        $this->clearFailedAttempts($user['username']);
 
         return $reset['email'];
     }
