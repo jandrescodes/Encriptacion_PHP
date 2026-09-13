@@ -7,13 +7,16 @@ CREATE TABLE IF NOT EXISTS `users` (
   `last_name`  varchar(100) NOT NULL,
   `email`      varchar(100) NOT NULL DEFAULT '',
   `username`   varchar(50)  NOT NULL,
-  `password`   varchar(255) NOT NULL,
+  `password`   varchar(255)           NULL DEFAULT NULL,
+  `oauth_provider`          varchar(20)           NULL DEFAULT NULL,
+  `oauth_id`                varchar(100)          NULL DEFAULT NULL,
   `is_admin`               tinyint(1)   NOT NULL DEFAULT 0,
   `remember_token`         varchar(64)           NULL DEFAULT NULL,
   `remember_token_expires` datetime              NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email`          (`email`),
   UNIQUE KEY `username`       (`username`),
+  UNIQUE KEY `uq_oauth_provider_id` (`oauth_provider`, `oauth_id`),
   KEY `idx_remember_token`    (`remember_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
