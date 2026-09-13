@@ -128,7 +128,7 @@ class User extends Model
             "UPDATE users SET oauth_provider = ?, oauth_id = ? WHERE id = ?"
         );
         $stmt->bind_param("ssi", $provider, $oauthId, $userId);
-        $success = $stmt->execute() && $stmt->affected_rows !== -1;
+        $success = $stmt->execute() && $stmt->affected_rows > 0;
         $stmt->close();
 
         if ($success) {
