@@ -5,21 +5,25 @@ namespace App\Controller;
 use App\Core\Auth;
 use App\Core\Controller;
 use App\Model\ActivityLog;
+use App\Model\User;
 use App\Model\UserSession;
+use App\Service\GoogleOAuthService;
 use App\Service\MailerService;
 
 class AuthController extends Controller
 {
     private const REMEMBER_COOKIE = 'remember_me';
 
-    private Auth         $auth;
-    private MailerService $mailer;
+    private Auth              $auth;
+    private MailerService     $mailer;
+    private GoogleOAuthService $google;
 
     public function __construct(\mysqli $connection)
     {
         parent::__construct($connection);
         $this->auth   = new Auth($connection);
         $this->mailer = new MailerService();
+        $this->google = new GoogleOAuthService();
     }
 
     private function rememberEnabled(): bool
@@ -191,5 +195,130 @@ class AuthController extends Controller
         }
 
         $this->render('auth/reset_password.php');
+    }
+
+    public function googleLogin(): void
+    {
+        if (!empty($_SESSION['user_id'])) {
+            $this->redirect('/');
+        }
+
+        if (!GoogleOAuthService::isEnabled()) {
+            $_SESSION['message'] = 'Google sign-in is currently disabled.';
+            $_SESSION['icon']    = 'info';
+            $this->redirect('/login');
+        }
+
+        $state                            = bin2hex(random_bytes(32));
+        $_SESSION['oauth_google_state']   = $state;
+
+        $this->redirect($this->google->buildAuthorizationUrl($state));
+    }
+
+    public function googleCallback(): void
+    {
+        if (!GoogleOAuthService::isEnabled()) {
+            $_SESSION['message'] = 'Google sign-in is currently disabled.';
+            $_SESSION['icon']    = 'info';
+            $this->redirect('/login');
+        }
+
+        if (!$this->validateOAuthState($_GET['state'] ?? '')) {
+            $this->redirect('/login');
+        }
+
+        try {
+            $tokens     = $this->google->exchangeCodeForTokens($_GET['code'] ?? '');
+            $googleUser = $this->google->fetchUserInfo($tokens['access_token']);
+        } catch (\RuntimeException) {
+            $_SESSION['message'] = 'Google sign-in failed. Please try again.';
+            $_SESSION['icon']    = 'warning';
+            $this->redirect('/login');
+        }
+
+        $user = $this->resolveOrCreateAccount(new User($this->connection), $googleUser);
+
+        if ($user === null) {
+            $_SESSION['message'] = 'Google sign-in failed. Please try again.';
+            $_SESSION['icon']    = 'warning';
+            $this->redirect('/login');
+        }
+
+        $this->completeOAuthLogin($user);
+    }
+
+    private function validateOAuthState(string $received): bool
+    {
+        $saved = $_SESSION['oauth_google_state'] ?? null;
+        unset($_SESSION['oauth_google_state']);
+
+        if ($saved === null || !hash_equals($saved, $received)) {
+            $_SESSION['message'] = 'Invalid OAuth state. Please try again.';
+            $_SESSION['icon']    = 'error';
+            return false;
+        }
+
+        return true;
+    }
+
+    private function resolveOrCreateAccount(User $userModel, array $googleUser): ?array
+    {
+        $existing = $userModel->findByOAuth(User::OAUTH_PROVIDER_GOOGLE, $googleUser['oauth_id']);
+        if ($existing) {
+            return $existing;
+        }
+
+        $byEmail = $userModel->getByEmail($googleUser['email']);
+        if ($byEmail) {
+            $linked = $userModel->linkOAuthProvider(
+                (int) $byEmail['id'],
+                User::OAUTH_PROVIDER_GOOGLE,
+                $googleUser['oauth_id']
+            );
+
+            return $linked ? $userModel->findByOAuth(User::OAUTH_PROVIDER_GOOGLE, $googleUser['oauth_id']) : null;
+        }
+
+        $username = $userModel->generateUniqueUsername(
+            ($googleUser['given_name'] ?? '') . ($googleUser['family_name'] ?? ''),
+            $googleUser['email']
+        );
+        $userId = $userModel->createFromOAuth([
+            'first_name'     => $googleUser['given_name'] ?? '',
+            'last_name'      => $googleUser['family_name'] ?? '',
+            'email'          => $googleUser['email'],
+            'username'       => $username,
+            'oauth_provider' => User::OAUTH_PROVIDER_GOOGLE,
+            'oauth_id'       => $googleUser['oauth_id'],
+        ]);
+
+        return $userId > 0 ? $userModel->getById($userId) : null;
+    }
+
+    private function completeOAuthLogin(array $user): void
+    {
+        session_regenerate_id(true);
+        $_SESSION['user_id']       = (int) $user['id'];
+        $_SESSION['name']          = $user['first_name'];
+        $_SESSION['is_admin']      = (bool) $user['is_admin'];
+        $_SESSION['last_activity'] = time();
+
+        $sessionToken                  = bin2hex(random_bytes(32));
+        $_SESSION['session_token']     = $sessionToken;
+
+        if (filter_var(env('ACTIVE_SESSIONS_ENABLED', true), FILTER_VALIDATE_BOOLEAN)) {
+            (new UserSession($this->connection))->create(
+                (int) $user['id'],
+                $sessionToken,
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $_SERVER['HTTP_USER_AGENT'] ?? ''
+            );
+        }
+
+        ActivityLog::log(ActivityLog::EVENT_LOGIN_SUCCESS, "Google login: {$user['username']}", (int) $user['id']);
+
+        $_SESSION['message'] = 'Welcome, ' . $user['first_name'] . '!';
+        $_SESSION['icon']    = 'success';
+        $this->redirect('/');
     }
 }

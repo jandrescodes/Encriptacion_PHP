@@ -18,6 +18,8 @@ $router->get('/forgot-password',  [AuthController::class,  'forgotPassword']);
 $router->post('/forgot-password', [AuthController::class,  'forgotPassword']);
 $router->get('/reset-password',   [AuthController::class,  'resetPassword']);
 $router->post('/reset-password',  [AuthController::class,  'resetPassword']);
+$router->get('/auth/google',          [AuthController::class, 'googleLogin']);
+$router->get('/auth/google/callback', [AuthController::class, 'googleCallback']);
 
 $router->get('/profile',           [ProfileController::class, 'profile']);
 $router->post('/profile',          [ProfileController::class, 'profile']);
