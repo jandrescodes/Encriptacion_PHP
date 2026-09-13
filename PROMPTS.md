@@ -525,5 +525,63 @@ Al final: queries SQL finales, consideraciones de seguridad, checklist de testin
 
 ---
 
-_Última actualización: 2026-08-21 — v1.14.3 (a11y en home/profile/session/activity-log/user + old-input en user create/edit; sin ejemplo nuevo, cubierto por Plantilla 6)_
+## Ejemplo real — Login con Google (implementado en v1.15.0)
+
+> Prompt de feature para añadir "Continue with Google" sobre el login por password existente, en PHP puro (sin librería OAuth externa), con feature flag.
+
+```
+[Rol]
+Actúa como desarrollador PHP Senior especializado en arquitectura MVC
+y seguridad web (autenticación, OAuth 2.0, protección de sesiones).
+
+[Contexto]
+Proyecto: Encriptacion_PHP — PHP MVC con Composer (sin framework).
+Stack: Bootstrap 4, SweetAlert2, FontAwesome, MySQL/MariaDB.
+Login soporta password + remember-me (cookie con hash SHA-256 en BD).
+El servidor tiene cURL habilitado.
+
+Archivos relevantes:
+- app/Core/Auth.php                  ← login por password + restoreFromCookie()
+- app/Controller/AuthController.php  ← login(), logout(), resetPassword()
+- app/Model/User.php                 ← prepared statements, findByEmail()
+- app/Service/MailerService.php      ← único servicio existente (patrón a replicar)
+- routes/web.php, public/.htaccess   ← rutas y security headers actuales
+
+[Tarea]
+Integra OAuth 2.0 + OpenID Connect de Google para login/registro:
+1) Nueva tabla/columnas en users: `password` NULLABLE, `oauth_provider`, `oauth_id`
+   (VARCHAR(20)/VARCHAR(100), índice único uq_oauth_provider_id).
+2) GET /auth/google genera un `state` de un solo uso (bin2hex(random_bytes(32)))
+   guardándolo en sesión, y redirige a Google con scope openid email profile.
+3) GET /auth/google/callback valida `state` con hash_equals() y lo consume ANTES
+   de cualquier efecto secundario; intercambia el código (POST a oauth2.googleapis.com/token)
+   y fetchea userinfo (oauth2/v3/userinfo). Rechaza emails con email_verified=false.
+4) Resolución de cuenta: link existente (oauth_provider+oauth_id) → email verificado ya
+   registrado (enlazar proveedor) → usuario nuevo con password=NULL y username único.
+5) Login con Google completa el mismo ciclo que password: regenerar session id,
+   fila en user_sessions, activity log, flash de bienvenida.
+6) Botón "Continue with Google" en views/auth/login.php controlado por flag.
+7) Edge cases: cuentas solo-Google nunca pasan password_verify() (rechazo temprano);
+   forgot/reset de password rechaza cuentas OAuth; usuarios híbridos pueden fijar
+   password desde el perfil.
+8) Feature flag OAUTH_GOOGLE_ENABLED=false por defecto — rutas y botón no-op con flash.
+
+[Restricciones]
+- Sin librerías OAuth externas ni CDN — cURL con CURLOPT_SSL_VERIFYPEER/VERIFYHOST + timeouts
+- client_secret solo desde env(); nunca loguearlo; nunca enviarlo en URLs/logs
+- state: hash_equals() para comparar; consumir una sola vez antes de side effects
+- Account linking SOLO por email verificado por Google
+- MySQLi prepared statements; Post-only y CSRF para mutaciones
+- Documentar el fix de SameSite (session cookie Strict→Lax) si el callback pierde el state
+
+[Formato de salida]
+Plan en fases atómicas: 1-Schema+env, 2-Model User, 3-Flujo OAuth+rutas,
+4-Botón en login, 5-Edge cases (password/reset/perfil), 6-Tests (sin Google real),
+7-Docs. Para cada fase: objetivo, archivos, cambios técnicos, criterio de done.
+Al final: queries SQL finales, consideraciones de seguridad, checklist de testing manual.
+```
+
+---
+
+_Última actualización: 2026-09-12 — v1.15.0 (Google OAuth: ejemplo real nuevo de plantilla de feature con integración externa + edge cases; incluye el fix SameSite=Lax en la cookie de sesión para que sobreviva el callback cross-site)_
 _Mantener sincronizado con CLAUDE.md al agregar features nuevas._

@@ -2,7 +2,7 @@
 
 # SecureAuth — PHP MVC Authentication System
 
-[![Version](https://img.shields.io/badge/version-1.14.3-blue.svg?style=flat-square)](https://github.com/jandrescodes/Encriptacion_PHP/releases/tag/1.14.3)
+[![Version](https://img.shields.io/badge/version-1.15.0-blue.svg?style=flat-square)](https://github.com/jandrescodes/Encriptacion_PHP/releases/tag/1.15.0)
 [![Tests](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml/badge.svg)](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml)
 [![PHP Version](https://img.shields.io/badge/PHP->=8.2-777BB4.svg?style=flat-square&logo=php)](https://php.net/)
 [![PHPMailer](https://img.shields.io/badge/PHPMailer-^6.9-1F3B5F.svg?style=flat-square)](https://github.com/PHPMailer/PHPMailer)
@@ -24,6 +24,7 @@ Custom PHP MVC authentication system built with Composer, a lightweight router, 
   - [Features](#features)
   - [Requirements](#requirements)
   - [Installation](#installation)
+    - [Google OAuth Setup](#google-oauth-setup)
   - [Project Structure](#project-structure)
   - [Usage](#usage)
   - [URL Routing](#url-routing)
@@ -39,7 +40,7 @@ Custom PHP MVC authentication system built with Composer, a lightweight router, 
 
 ### Login
 
-Secure login form with account lockout and password recovery.
+Secure login form with account lockout, email-based password recovery, and an optional **Continue with Google** (OAuth 2.0 + OpenID Connect) button.
 
 ![Login](docs/screenshots/login.png)
 
@@ -72,6 +73,7 @@ Full audit trail with server-side filtering by event type, username, and date ra
 **Authentication & Account Management**
 
 - Login with bcrypt password hashing, account lockout after repeated failed attempts, and email-based password recovery
+- **Continue with Google** (OAuth 2.0 + OpenID Connect, Authorization Code flow) — feature-flagged, account auto-creation or linking by Google-verified email, works alongside password login ("hybrid" accounts) — see [Google OAuth Setup](#google-oauth-setup)
 - Persistent login (Remember Me) and automatic session timeout on inactivity
 - Self-service user profile — edit personal info or change password at `/profile`
 - **Accessible auth forms (WCAG 2.1 AA)** — real `<label>`s, an `<h1>` per page, `autocomplete` on every field, a keyboard-focusable password toggle (`aria-pressed`), decorative images/icons hidden from assistive tech, a 24 px Remember-me target, contrast-safe text, and `prefers-reduced-motion` support; the reset form exposes a hidden `username` field so password managers associate the account
@@ -89,7 +91,7 @@ Full audit trail with server-side filtering by event type, username, and date ra
 - File-based cache for the users listing, with automatic invalidation on writes
 - DataTables-powered tables with export (Copy, PDF, Excel, CSV, Print) and column visibility toggle
 - SweetAlert2 notifications for CRUD and authentication feedback
-- 71-test PHPUnit integration suite running against a real MySQL database, with CI via GitHub Actions
+- 95-test PHPUnit suite (unit + integration) running against a real MySQL database, with CI via GitHub Actions
 
 > See [Security](#security) below for how each of these is implemented under the hood.
 
@@ -100,6 +102,7 @@ Full audit trail with server-side filtering by event type, username, and date ra
 - Apache with `mod_rewrite` (XAMPP recommended)
 - Composer
 - Gmail account with an App Password (or any SMTP provider)
+- Optional — for "Continue with Google": a Google Cloud project with a **Web application** OAuth 2.0 Client ID/Secret (see [Google OAuth Setup](#google-oauth-setup))
 
 ## Installation
 
@@ -138,6 +141,28 @@ mysql -u root -p < database/seeds.sql
 
 6. Place the project in your server's web root (e.g. `htdocs/` in XAMPP) and open `APP_URL` in your browser.
 
+### Google OAuth Setup
+
+This step is optional. Without it the app works normally but the "Continue with Google" button on the login page is hidden.
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/), create a project (or use an existing one), then **APIs & Services → OAuth consent screen** and fill in the app name and support email (Testing status is fine for localhost).
+2. Under **APIs & Services → Credentials → Create credentials → OAuth client ID** choose **Web application** and add your redirect URI in **Authorized redirect URIs**:
+   ```
+   http://localhost/Encriptacion_PHP/public/auth/google/callback
+   ```
+   (Use `https://` + your real domain in production.)
+3. Copy the **Client ID** and **Client Secret** into your `.env`:
+   ```dotenv
+   OAUTH_GOOGLE_ENABLED=true
+   OAUTH_GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+   OAUTH_GOOGLE_CLIENT_SECRET=GOCSPX-...
+   OAUTH_GOOGLE_REDIRECT_URI=http://localhost/Encriptacion_PHP/public/auth/google/callback
+   ```
+   The flag is `false` by default — the routes and the login button no-op with a flash message until you set it to `true`.
+4. Reload the login page — the **Continue with Google** button appears.
+
+> Implementation is pure PHP (cURL + custom methods), no third-party OAuth library. See the OAuth bullet under [Security](#security) for the guarantees.
+
 ## Project Structure
 
 ```
@@ -169,30 +194,33 @@ See [CLAUDE.md](CLAUDE.md) for the full file-by-file breakdown.
 
 All routes are declared in `routes/web.php` and dispatched by `App\Core\Router`:
 
-| URL                            | Controller method                     |
-| ------------------------------ | ------------------------------------- |
-| `/`                            | `HomeController::index()`             |
-| `/login`                       | `AuthController::login()`             |
-| `POST /logout`                 | `AuthController::logout()`            |
-| `/forgot-password`             | `AuthController::forgotPassword()`    |
-| `/reset-password?token=...`    | `AuthController::resetPassword()`     |
-| `/profile`                     | `ProfileController::profile()`        |
-| `POST /profile/password`       | `ProfileController::changePassword()` |
-| `/users`                       | `UserController::index()`             |
-| `/users/create`                | `UserController::create()`            |
-| `/users/edit?id=X`             | `UserController::edit()`              |
-| `POST /users/delete`           | `UserController::delete()`            |
-| `/activity-logs`               | `ActivityLogController::index()`      |
-| `/activity-logs/data`          | `ActivityLogController::data()`       |
-| `/sessions`                    | `SessionController::index()`          |
-| `POST /sessions/revoke`        | `SessionController::revoke()`         |
-| `POST /sessions/revoke-others` | `SessionController::revokeOthers()`   |
+| URL                            | Controller method                                                                 |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| `/`                            | `HomeController::index()`                                                         |
+| `/login`                       | `AuthController::login()`                                                         |
+| `POST /logout`                 | `AuthController::logout()`                                                        |
+| `GET /auth/google`             | `AuthController::googleLogin()` — redirects to Google (feature-flagged)           |
+| `GET /auth/google/callback`    | `AuthController::googleCallback()` — OAuth callback, resolves/creates the account |
+| `/forgot-password`             | `AuthController::forgotPassword()`                                                |
+| `/reset-password?token=...`    | `AuthController::resetPassword()`                                                 |
+| `/profile`                     | `ProfileController::profile()`                                                    |
+| `POST /profile/password`       | `ProfileController::changePassword()`                                             |
+| `/users`                       | `UserController::index()`                                                         |
+| `/users/create`                | `UserController::create()`                                                        |
+| `/users/edit?id=X`             | `UserController::edit()`                                                          |
+| `POST /users/delete`           | `UserController::delete()`                                                        |
+| `/activity-logs`               | `ActivityLogController::index()`                                                  |
+| `/activity-logs/data`          | `ActivityLogController::data()`                                                   |
+| `/sessions`                    | `SessionController::index()`                                                      |
+| `POST /sessions/revoke`        | `SessionController::revoke()`                                                     |
+| `POST /sessions/revoke-others` | `SessionController::revokeOthers()`                                               |
 
 ## Security
 
 - Passwords hashed with bcrypt (`PASSWORD_DEFAULT`)
 - Session set only after successful `password_verify()`; `session_regenerate_id(true)` called immediately after to prevent session fixation
-- **Secure session cookie** — `session_start_secure()` helper enforces `HttpOnly`, `SameSite=Strict`, and `Secure` (on HTTPS) on every session start — including after logout and session timeout
+- **Secure session cookie** — `session_start_secure()` helper enforces `HttpOnly`, `SameSite=Lax`, and `Secure` (on HTTPS) on every session start — including after logout and session timeout. `Lax` (not `Strict`) so the session survives the cross-site top-level navigation the Google OAuth callback performs, while still blocking cross-site POST (CSRF)
+- **Google OAuth** — one-shot `state` parameter validated with `hash_equals()` and consumed before any side effect; account resolution links only Google-verified emails; Google-only accounts (`password = NULL`) never reach `password_verify()` and are refused by password reset; hybrid accounts log in with either method; requests to Google go through cURL with SSL verification and timeouts, and the `client_secret` is read from the environment, never logged
 - **HTTP Security Headers** — `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Content-Security-Policy`, `Permissions-Policy` set in `public/.htaccess` via `mod_headers`; HSTS commented out, ready for HTTPS
 - **CSRF tokens** on all POST forms — generated via `App\Core\Csrf::token()`, validated with `hash_equals()` in every controller; **token rotated** after each successful verification
 - **Logout is POST-only** — protected by CSRF token; prevents logout CSRF via `<img>` or link
@@ -202,7 +230,7 @@ All routes are declared in `routes/web.php` and dispatched by `App\Core\Router`:
 - **Self-hosted assets** — no external CDN in any view; eliminates supply-chain risk and `Referer` header token leakage
 - Email validated with `filter_var()` before DB lookup
 - SMTP with STARTTLS (port 587)
-- Remember-me: raw token in cookie, SHA-256 hash in DB — cookie is `HttpOnly`, `SameSite=Strict`, `Secure` on HTTPS
+- Remember-me: raw token in cookie, SHA-256 hash in DB — cookie is `HttpOnly`, `SameSite=Strict`, `Secure` on HTTPS (the remember-me cookie stays `Strict`; only the session cookie is `Lax`, for the OAuth callback)
 - Session timeout enforced on every protected request; clears remember cookie to prevent silent re-login
 - User delete requires POST — not exploitable via `<img>` or link prefetch
 - **Admin self-protection** — admins cannot delete their own account or remove their own `is_admin` flag
@@ -239,8 +267,8 @@ cp .env.testing.example .env.testing
 composer test
 
 # Run by suite
-composer test:unit         # App\Model\User + App\Model\LoginAttempt + App\Model\ActivityLog + App\Model\UserSession — 52 tests
-composer test:integration  # App\Core\Auth — 19 tests
+composer test:unit         # App\Model\User + App\Model\LoginAttempt + App\Model\ActivityLog + App\Model\UserSession + App\Model\User OAuth helpers — 66 tests
+composer test:integration  # App\Core\Auth + Google OAuth callback — 29 tests
 ```
 
 ### CI

@@ -47,7 +47,12 @@ SMTP_PORT=587
 
 APP_URL=http://localhost/Encriptacion_PHP/public
 APP_TIMEZONE=America/Bogota
-APP_VERSION=1.14.3
+APP_VERSION=1.15.0
+
+OAUTH_GOOGLE_ENABLED=false
+OAUTH_GOOGLE_CLIENT_ID=
+OAUTH_GOOGLE_CLIENT_SECRET=
+OAUTH_GOOGLE_REDIRECT_URI=http://localhost/Encriptacion_PHP/public/auth/google/callback
 
 CACHE_ENABLED=true
 CACHE_TTL_USERS=60
@@ -74,6 +79,8 @@ The `.env` file is loaded by `vlucas/phpdotenv` in `app/Config/config.php`, whic
 - `LOGIN_LOCKOUT_ENABLED` — enable/disable account lockout (default `true`)
 - `LOGIN_MAX_ATTEMPTS` — failed attempts before lock (default `5`)
 - `LOGIN_LOCKOUT_MINUTES` — lock duration in minutes (default `15`)
+- `OAUTH_GOOGLE_ENABLED` — enable/disable "Continue with Google" login (default `false`)
+- `OAUTH_GOOGLE_CLIENT_ID` / `OAUTH_GOOGLE_CLIENT_SECRET` / `OAUTH_GOOGLE_REDIRECT_URI` — Google Cloud OAuth 2.0 credentials (see `README.md` → "Google OAuth Setup"; the redirect URI must be added to the Google Console app before enabling)
 
 ## Architecture
 
@@ -88,24 +95,26 @@ Browser → public/index.php → App\Core\Router → Controller::method()
 
 ### URL Scheme
 
-| URL                            | Controller method                     |
-| ------------------------------ | ------------------------------------- |
-| `/`                            | `HomeController::index()`             |
-| `/login`                       | `AuthController::login()`             |
-| `/logout`                      | `AuthController::logout()`            |
-| `/forgot-password`             | `AuthController::forgotPassword()`    |
-| `/reset-password?token=...`    | `AuthController::resetPassword()`     |
-| `/profile`                     | `ProfileController::profile()`        |
-| `POST /profile/password`       | `ProfileController::changePassword()` |
-| `/users`                       | `UserController::index()`             |
-| `/users/create`                | `UserController::create()`            |
-| `/users/edit?id=X`             | `UserController::edit()`              |
-| `POST /users/delete`           | `UserController::delete()`            |
-| `/activity-logs`               | `ActivityLogController::index()`      |
-| `GET /activity-logs/data`      | `ActivityLogController::data()`       |
-| `/sessions`                    | `SessionController::index()`          |
-| `POST /sessions/revoke`        | `SessionController::revoke()`         |
-| `POST /sessions/revoke-others` | `SessionController::revokeOthers()`   |
+| URL                            | Controller method                                                                |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| `/`                            | `HomeController::index()`                                                        |
+| `/login`                       | `AuthController::login()`                                                        |
+| `/logout`                      | `AuthController::logout()`                                                       |
+| `GET /auth/google`             | `AuthController::googleLogin()` — feature-flagged by `OAUTH_GOOGLE_ENABLED`      |
+| `GET /auth/google/callback`    | `AuthController::googleCallback()` — OAuth redirect target; also feature-flagged |
+| `/forgot-password`             | `AuthController::forgotPassword()`                                               |
+| `/reset-password?token=...`    | `AuthController::resetPassword()`                                                |
+| `/profile`                     | `ProfileController::profile()`                                                   |
+| `POST /profile/password`       | `ProfileController::changePassword()`                                            |
+| `/users`                       | `UserController::index()`                                                        |
+| `/users/create`                | `UserController::create()`                                                       |
+| `/users/edit?id=X`             | `UserController::edit()`                                                         |
+| `POST /users/delete`           | `UserController::delete()`                                                       |
+| `/activity-logs`               | `ActivityLogController::index()`                                                 |
+| `GET /activity-logs/data`      | `ActivityLogController::data()`                                                  |
+| `/sessions`                    | `SessionController::index()`                                                     |
+| `POST /sessions/revoke`        | `SessionController::revoke()`                                                    |
+| `POST /sessions/revoke-others` | `SessionController::revokeOthers()`                                              |
 
 ### Key Files
 
@@ -125,15 +134,16 @@ Browser → public/index.php → App\Core\Router → Controller::method()
 | `app/Model/LoginAttempt.php`               | `App\Model\LoginAttempt` — atomic `registerFailure()` via `INSERT ... ON DUPLICATE KEY UPDATE`, `lockedSecondsRemaining()`, `clear()`, `getLockedCount(): int`; `identifier` is the PK (no surrogate id)                                                                                                                                                                                                                                       |
 | `app/Core/Csrf.php`                        | `App\Core\Csrf` — `token()` generates/returns session CSRF token; `verify()` validates `$_POST['_csrf']` with `hash_equals()`                                                                                                                                                                                                                                                                                                                  |
 | `app/Middleware/AuthMiddleware.php`        | Static guards: `auth()`, `admin()`, `timeout(\mysqli)`, `session(\mysqli)` — validates the current `session_token` against `user_sessions`, destroys the session and redirects to `/login` if revoked                                                                                                                                                                                                                                          |
-| `app/Controller/AuthController.php`        | All auth logic: login, logout, forgotPassword, resetPassword                                                                                                                                                                                                                                                                                                                                                                                   |
+| `app/Controller/AuthController.php`        | All auth logic: login, logout, forgotPassword, resetPassword, and Google OAuth entry points `googleLogin()` (GET /auth/google) + `googleCallback()` (GET /auth/google/callback), both feature-flagged by `OAUTH_GOOGLE_ENABLED`                                                                                                                                                                                                                |
 | `app/Controller/HomeController.php`        | Dashboard: applies timeout + auth middleware, instancia `User`/`ActivityLog`/`LoginAttempt` para pasar métricas reales a la vista                                                                                                                                                                                                                                                                                                              |
 | `app/Controller/ProfileController.php`     | User profile: `profile()` (edit info) and `changePassword()` — any authenticated user; `$id` always from `$_SESSION['user_id']`                                                                                                                                                                                                                                                                                                                |
 | `app/Controller/UserController.php`        | Full user CRUD — guarded by `admin()` middleware; `create()`/`edit()` stash non-password fields in `$_SESSION['old']` on validation failure and rehydrate the form on redirect (old-input retention)                                                                                                                                                                                                                                           |
 | `app/Controller/ActivityLogController.php` | Audit log viewer — `index()` GET `/activity-logs` (HTML, guarded by `admin()`); `data()` GET `/activity-logs/data` (JSON endpoint for DataTables server-side); private `sanitizeFilters(array): array`                                                                                                                                                                                                                                         |
 | `app/Controller/SessionController.php`     | Active sessions management — `index()` lists the authenticated user's sessions; `revoke()` deletes one session by id (scoped to `user_id`); `revokeOthers()` deletes all sessions except the current one; private `guard()` (timeout + session + auth) and `currentTokenHash()`                                                                                                                                                                |
-| `app/Model/User.php`                       | `App\Model\User` — all DB queries via MySQLi prepared statements; `updateProfile()` (info only, no password/is_admin), `getPasswordById()`, `updatePasswordProfile()` (by id), `getTotalCount(): int`                                                                                                                                                                                                                                          |
+| `app/Model/User.php`                       | `App\Model\User` — all DB queries via MySQLi prepared statements; `updateProfile()` (info only, no password/is_admin), `getPasswordById()`, `updatePasswordProfile()` (by id), `getTotalCount(): int`, OAuth helpers `getByOAuth()`, `findByEmail()`, `getByEmailForLogin()`, `insertOAuthUser()`, `linkOAuthProvider()`, `unlinkOAuthProvider()`, `generateUniqueUsername()`, `rejectPasswordLogin()` (OAuth users have `password = NULL`)    |
 | `app/Model/ActivityLog.php`                | `App\Model\ActivityLog` — `log()` static (singleton DB), `logTo(\mysqli)` (test-injectable), `getAll(array $filters = [], ?int $limit = null, ?int $offset = null): array` (LEFT JOIN users, dynamic WHERE, prepared statements), `getTotalCount(array $filters = []): int`, `getCountTodayByEvent(string): int`, `getRecentEvents(int=5): array`; private `buildWhere(array): array`; event constants                                         |
 | `app/Model/UserSession.php`                | `App\Model\UserSession` — `create()`/static `createTo(\mysqli, ...)` (stores SHA-256 hash of the session token, never raw), `touch(hash)` (updates `last_activity`), `existsActive(hash, ttl): bool`, `getForUser(userId, currentHash): array` (marks `is_current` via hash comparison in SQL), `revoke(id, userId): bool` (scoped to owner), `revokeAllExcept(userId, currentHash): int`, `deleteByTokenHash(hash)`, `purgeExpired(ttl): int` |
+| `app/Service/GoogleOAuthService.php`       | `App\Service\GoogleOAuthService` — pure-PHP OAuth 2.0 + OpenID Connect client (no libraries): `buildAuthorizationUrl(state)`, `exchangeCodeForTokens(code)`, `fetchUserInfo(accessToken)`; cURL hardened (SSL verify, timeouts, `client_secret` only via `env()`, never logged). Credentials from `OAUTH_GOOGLE_CLIENT_ID`/`OAUTH_GOOGLE_CLIENT_SECRET`/`OAUTH_GOOGLE_REDIRECT_URI`                                                            |
 | `app/Service/MailerService.php`            | PHPMailer encapsulation — SMTP via STARTTLS                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `views/layouts/header.php`                 | Shared `<head>` + nav for all protected pages; accepts `$pageTitle`, `$favicon`, `$bodyClass`, `$useDataTables`, `$pageStyles`                                                                                                                                                                                                                                                                                                                 |
 | `views/layouts/footer.php`                 | Shared footer with version; accepts `$useDataTables`, `$pageScripts`                                                                                                                                                                                                                                                                                                                                                                           |
@@ -170,10 +180,16 @@ Flash notifications (rendered by `views/layouts/messages.php`):
 - `$_SESSION['message']` — toast message text
 - `$_SESSION['icon']` — SweetAlert2 icon type (`success`, `error`, `warning`, `info`)
 
+Google OAuth one-shot flow:
+
+- `$_SESSION['oauth_google_state']` — random `state` for the OAuth Authorization Code flow (`bin2hex(random_bytes(32))`); set in `googleLogin()`, read once + `unset()` in `googleCallback()` before any side effect, validated with `hash_equals()`
+
 ### Database Tables
 
-- **users**: `id, first_name, last_name, email, username, password` (bcrypt), `is_admin (DEFAULT 0)`, `remember_token` (sha256 hash, nullable), `remember_token_expires` (datetime, nullable)
+- **users**: `id, first_name, last_name, email, username, password` (bcrypt, **NULLABLE since OAuth**), `is_admin (DEFAULT 0)`, `remember_token` (sha256 hash, nullable), `remember_token_expires` (datetime, nullable), `oauth_provider` (VARCHAR 20, nullable), `oauth_id` (VARCHAR 100, nullable)
   - `email` and `username` have UNIQUE constraints; `remember_token` has an index (`idx_remember_token`)
+  - `password = NULL` marks a Google-only account — `rejectPasswordLogin()` blocks it before `password_verify()`; hybrid accounts (OAuth + later-set password) have both
+  - Unique key `uq_oauth_provider_id` on (`oauth_provider`, `oauth_id`) — one Google account links to one local user
 - **password_resets**: `id, email, token, created_at, expires_at, used`
 - **login_attempts**: `identifier` (PRIMARY KEY — varchar, normalized lowercase), `attempts`, `locked_until` (datetime, nullable), `last_attempt`
   - No surrogate id — `identifier` is the natural key; one row per username tracked
@@ -254,7 +270,8 @@ Loaded **only** on pages that set `$useDataTables = true`. The flag loads the fu
 - Passwords hashed with `password_hash($pass, PASSWORD_DEFAULT)` (bcrypt)
 - Session variables assigned only after successful `password_verify()` — never on failed login
 - `session_regenerate_id(true)` called immediately after login to prevent session fixation
-- **Secure session cookie**: `session_start_secure()` (defined in `app/Config/autoload.php`) applies `httponly=true`, `samesite=Strict`, `secure=true` (on HTTPS) before every `session_start()` — called on bootstrap, logout, and session timeout
+- **Secure session cookie**: `session_start_secure()` (defined in `app/Config/autoload.php`) applies `httponly=true`, `samesite=Lax`, `secure=true` (on HTTPS) before every `session_start()` — called on bootstrap, logout, and session timeout. `Lax` (not `Strict`) so the cookie is sent on the cross-site top-level navigation the Google OAuth callback performs (`accounts.google.com` → `localhost`) without losing the one-shot `state`; `Lax` still blocks cross-site POST
+- **Google OAuth**: `state` parameter (`$_SESSION['oauth_google_state']`) validated with `hash_equals()` and **consumed one-shot** before any side effect (regenerate session, DB writes); feature-flagged by `OAUTH_GOOGLE_ENABLED` (off by default) — routes and login button no-op with a flash when disabled; account resolution links by Google-verified email (`email_verified = true`) only; users created via Google have `password = NULL` and are rejected by `User::rejectPasswordLogin()` (never reach `password_verify()`); hybrid accounts (OAuth + later-set password) log in with either method; forgot/reset password refuses OAuth-only accounts; `client_secret` read from `env()` per request, never logged
 - **HTTP Security Headers**: set in `public/.htaccess` via `mod_headers` — `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection: 1; mode=block`, `Permissions-Policy`, `Content-Security-Policy` (`default-src 'self'`, `form-action 'self'`, `frame-ancestors 'none'`); HSTS commented out, ready for HTTPS
 - **CSRF**: `App\Core\Csrf::token()` generates a `bin2hex(random_bytes(32))` token stored in `$_SESSION['csrf_token']`; all POST forms include `<input type="hidden" name="_csrf">` with this value; controllers call `$this->verifyCsrf($redirectPath)` which uses `hash_equals()` to compare — prevents timing attacks; token is **rotated** after each successful verification (`unset($_SESSION['csrf_token'])` in `Csrf::verify()`)
 - **Logout is POST-only** — `/logout` route only accepts POST; `header.php` renders a `<form>` with CSRF token; `AuthController::logout()` calls `verifyCsrf()` before processing — prevents logout CSRF via `<img>` or link
@@ -265,7 +282,7 @@ Loaded **only** on pages that set `$useDataTables = true`. The flag loads the fu
 - Email sanitized with `filter_var($email, FILTER_SANITIZE_EMAIL)` before DB queries
 - SMTP uses STARTTLS encryption (port 587)
 - **Self-hosted assets**: all JS and fonts in auth views use local files — no external CDN (eliminates supply-chain risk and `Referer` token leakage to third parties)
-- Remember-me tokens: `bin2hex(random_bytes(32))` stored raw in cookie; SHA-256 hash stored in DB. Cookie is `HttpOnly`, `SameSite=Strict`, `Secure` on HTTPS. TTL controlled by `REMEMBER_ME_TTL`. Cleared on logout and on session expiry
+- Remember-me tokens: `bin2hex(random_bytes(32))` stored raw in cookie; SHA-256 hash stored in DB. Cookie is `HttpOnly`, `SameSite=Strict`, `Secure` on HTTPS. TTL controlled by `REMEMBER_ME_TTL`. Cleared on logout and on session expiry. The remember-me cookie stays `Strict` (only set and consumed on same-site requests), unlike the session cookie which is `Lax` for the OAuth callback
 - Session timeout: `AuthMiddleware::timeout()` called on every protected request; destroys session + clears remember cookie if `SESSION_TIMEOUT` seconds of inactivity exceeded
 - User delete uses POST — not exploitable via `<img>` tags or link prefetch; `users-delete.js` dynamically creates and submits a form with the CSRF token after SweetAlert2 confirmation
 - **Admin self-protection**: `UserController::delete()` blocks deletion of the authenticated admin's own account; `UserController::edit()` blocks removing one's own `is_admin` flag
@@ -278,8 +295,8 @@ Loaded **only** on pages that set `$useDataTables = true`. The flag loads the fu
 
 ### Stack
 
-- **PHPUnit ^11.0** — integration tests against a real MySQL database (`login_test`)
-- **71 tests total:** 14 in `tests/Unit/UserTest.php` (User model), 7 in `tests/Unit/LoginAttemptTest.php` (LoginAttempt model), 18 in `tests/Unit/ActivityLogTest.php` (ActivityLog model), 13 in `tests/Unit/UserSessionTest.php` (UserSession model), 19 in `tests/Integration/AuthTest.php` (Auth class)
+- **PHPUnit ^11.0** — integration + unit tests against a real MySQL database (`login_test`)
+- **95 tests total:** 14 in `tests/Unit/UserTest.php` (User model), 7 in `tests/Unit/LoginAttemptTest.php` (LoginAttempt model), 18 in `tests/Unit/ActivityLogTest.php` (ActivityLog model), 13 in `tests/Unit/UserSessionTest.php` (UserSession model), 14 in `tests/Unit/UserOAuthTest.php` (OAuth User helpers), 19 in `tests/Integration/AuthTest.php` (Auth class), 10 in `tests/Integration/AuthGoogleCallbackTest.php` (Google OAuth callback) — 66 unit + 29 integration
 - **CI:** `.github/workflows/tests.yml` — runs on push/PR to `master` with a MySQL 8.0 service
 
 ### Running tests locally
@@ -291,9 +308,9 @@ mysql -u root -p login_test < database/schema_test.sql
 
 # Create .env.testing with DB_DATABASE=login_test (never login)
 # Then run:
-composer test              # full suite
-composer test:unit         # User model only
-composer test:integration  # Auth class only
+composer test              # full suite (95 tests)
+composer test:unit         # models + OAuth helpers (66 tests)
+composer test:integration  # Auth + Google OAuth callback (29 tests)
 ```
 
 ### Key conventions
@@ -306,22 +323,25 @@ composer test:integration  # Auth class only
 - **Safeguard:** `TestCase` throws if `DB_DATABASE === 'login'` to prevent running against production DB
 - Timezone-sensitive date comparisons use `DATE_SUB(NOW(), INTERVAL X HOUR)` in SQL — never PHP-computed timestamps — to avoid PHP/MySQL timezone drift
 - `CACHE_ENABLED=false` in `.env.testing` and forced via `phpunit.xml` `<env>` — `appCache()` short-circuits before checking directory writability
+- **OAuth tests never call real Google**: `OAUTH_GOOGLE_ENABLED=false` / empty client id in `.env.testing`; callback flows are driven by factory userinfo payloads and a controller subclass that captures redirects
 
 ### Files
 
-| Path                              | Purpose                                                      |
-| --------------------------------- | ------------------------------------------------------------ |
-| `phpunit.xml`                     | PHPUnit 11 config — suites, bootstrap, env overrides         |
-| `.env.testing`                    | Test environment vars (gitignored)                           |
-| `database/schema_test.sql`        | Table-only schema for `login_test` (no `CREATE DATABASE`)    |
-| `tests/bootstrap.php`             | Minimal bootstrap — `.env.testing` → `$_ENV`, then autoload  |
-| `tests/TestCase.php`              | Abstract base — connection, schema, truncate, `createUser()` |
-| `tests/Unit/UserTest.php`         | 14 tests for `App\Model\User`                                |
-| `tests/Unit/LoginAttemptTest.php` | 7 tests for `App\Model\LoginAttempt`                         |
-| `tests/Unit/ActivityLogTest.php`  | 18 tests for `App\Model\ActivityLog`                         |
-| `tests/Unit/UserSessionTest.php`  | 13 tests for `App\Model\UserSession`                         |
-| `tests/Integration/AuthTest.php`  | 19 tests for `App\Core\Auth`                                 |
-| `.github/workflows/tests.yml`     | GitHub Actions CI workflow                                   |
+| Path                                           | Purpose                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `phpunit.xml`                                  | PHPUnit 11 config — suites, bootstrap, env overrides                                                                                                                                                                                                                              |
+| `.env.testing`                                 | Test environment vars (gitignored)                                                                                                                                                                                                                                                |
+| `database/schema_test.sql`                     | Table-only schema for `login_test` (no `CREATE DATABASE`)                                                                                                                                                                                                                         |
+| `tests/bootstrap.php`                          | Minimal bootstrap — `.env.testing` → `$_ENV`, then autoload                                                                                                                                                                                                                       |
+| `tests/TestCase.php`                           | Abstract base — connection, schema, truncate, `createUser()`                                                                                                                                                                                                                      |
+| `tests/Unit/UserTest.php`                      | 14 tests for `App\Model\User`                                                                                                                                                                                                                                                     |
+| `tests/Unit/LoginAttemptTest.php`              | 7 tests for `App\Model\LoginAttempt`                                                                                                                                                                                                                                              |
+| `tests/Unit/ActivityLogTest.php`               | 18 tests for `App\Model\ActivityLog`                                                                                                                                                                                                                                              |
+| `tests/Unit/UserSessionTest.php`               | 13 tests for `App\Model\UserSession`                                                                                                                                                                                                                                              |
+| `tests/Unit/UserOAuthTest.php`                 | 14 tests for the OAuth User helpers (`getByOAuth`, `insertOAuthUser`, `linkOAuthProvider`, username derivation, `rejectPasswordLogin`)                                                                                                                                            |
+| `tests/Integration/AuthTest.php`               | 19 tests for `App\Core\Auth`                                                                                                                                                                                                                                                      |
+| `tests/Integration/AuthGoogleCallbackTest.php` | 10 tests for the Google OAuth callback flow — account resolution via reflection on `resolveOrCreateAccount()`, feature-flag + `state` handling through a `CapturingAuthController` subclass that captures `redirect()` (simulates the `exit` after redirect), no real Google HTTP |
+| `.github/workflows/tests.yml`                  | GitHub Actions CI workflow                                                                                                                                                                                                                                                        |
 
 ## Notes
 

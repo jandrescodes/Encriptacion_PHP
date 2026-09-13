@@ -15,6 +15,7 @@ Custom PHP MVC auth system (SecureAuth). PHP >= 8.2, MySQL/MariaDB, no build ste
 - Integration tests hit **real MySQL** — never mock `\mysqli`. `tests/TestCase.php` throws if `DB_DATABASE === 'login'` (protects prod DB).
 - **Never load `app/Config/autoload.php` in tests** — it starts a session, reads cookies, and connects the DB singleton. `tests/bootstrap.php` instead fills `$_ENV` from `.env.testing` via `parse_ini_file` BEFORE requiring `vendor/autoload.php` (because Composer's `autoload.files` runs `app/Config/config.php`). It also explicitly `require`s `cache.php` (not in `autoload.files`) and connects `\mysqli` directly.
 - Timezone-sensitive date comparisons in SQL use `DATE_SUB(NOW(), INTERVAL X HOUR)` — never PHP-computed timestamps (PHP/MySQL timezone drift).
+- Controller tests needing to capture `redirect()` (then `exit`) patterns: subclass the controller with a method that records the target instead of exiting — `tests/Integration/AuthGoogleCallbackTest.php` uses this (`CapturingAuthController` + `RedirectCaptured` exception), plus reflection to exercise private account-resolution helpers. Suite is 95 tests (66 unit + 29 integration).
 
 ## Namespaces / entrypoints
 

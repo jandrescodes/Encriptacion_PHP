@@ -6,6 +6,34 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 > Note: Entries before `1.3.1` may reference legacy paths (`config/`, `controllers/`, `model/`) that were moved to `app/Config/`, `app/Controller/`, and `app/Model/`.
 
+## [1.15.0] — 2026-09-12
+
+### Added
+
+- **Login con Google (OAuth 2.0 + OpenID Connect)**, flujo Authorization Code implementado en PHP puro con cURL, sin librerías externas ni CDN:
+  - Nuevo servicio `app/Service/GoogleOAuthService.php` que encapsula el HTTP hacia Google: construcción de la URL de autorización, intercambio de código por tokens (`POST https://oauth2.googleapis.com/token`) y obtención del userinfo (`https://www.googleapis.com/oauth2/v3/userinfo`), con cURL endurecido (SSL verify, timeouts, el `client_secret` solo viene de `env()` y nunca se loguea).
+  - `AuthController::googleLogin()` (`GET /auth/google`): genera un `state` aleatorio de un solo uso (`bin2hex(random_bytes(32))` guardado en sesión), arma la URL de autorización (`openid email profile`, `prompt=select_account`) y redirige.
+  - `AuthController::googleCallback()` (`GET /auth/google/callback`): valida `state` con `hash_equals()` y lo consume antes de cualquier efecto secundario; intercambia el código, obtiene el userinfo (rechaza emails no verificados), resuelve o crea la cuenta y completa el ciclo de login (regeneración de id de sesión, fila en `user_sessions` con `session_token`, activity log, flash de bienvenida).
+  - Resolución de cuenta en `resolveOrCreateAccount()`: link OAuth existente (`oauth_provider` + `oauth_id`) → email verificado ya registrado (se enlaza el proveedor) → usuario nuevo con `password = NULL` y username único auto-generado (`generateUniqueUsername()`).
+  - Botón "Continue with Google" en la vista de login (SVG inline, accesible, controlado por feature flag).
+  - Nuevas variables de entorno: `OAUTH_GOOGLE_ENABLED`, `OAUTH_GOOGLE_CLIENT_ID`, `OAUTH_GOOGLE_CLIENT_SECRET`, `OAUTH_GOOGLE_REDIRECT_URI`.
+  - Esquema `users`: `password` ahora NULLABLE; nuevas columnas `oauth_provider` VARCHAR(20) NULL y `oauth_id` VARCHAR(100) NULL con índice único `uq_oauth_provider_id`.
+  - **Cuentas híbridas**: los usuarios creados por Google pueden fijar una contraseña desde el perfil (funcionan ambos logins, por password y por Google).
+  - 24 tests nuevos (95 en total): `tests/Unit/UserOAuthTest.php` (derivación de username, alta/consulta/link OAuth, `rejectPasswordLogin`) y `tests/Integration/AuthGoogleCallbackTest.php` (resolución de cuenta vía reflection, manejo de feature flag + `state` usando un controller que captura redirecciones, guards de integración); sin credenciales reales de Google ni red.
+
+### Changed
+
+- Cookie de sesión `SameSite` de `Strict` a `Lax` en `session_start_secure()` — `Strict` retiene la cookie en la navegación cross-site de nivel superior que hace el callback de OAuth (`accounts.google.com` → `localhost`), perdiendo el `state` de un solo uso.
+- `Auth::verifyCredentials()` / `passwordLoginErrorMessage()` rechazan cuentas OAuth sin contraseña antes de llegar a `password_verify()`.
+- `forgotPassword()` / `consumeResetToken()` rechazan cuentas OAuth (no se envía email de recuperación ni token a cuentas solo-Google).
+- `User::linkOAuthProvider()` devuelve `false` cuando no actualiza ninguna fila (antes era `!== -1`).
+
+### Security
+
+- Parámetro `state` validado con `hash_equals()` y consumido una sola vez antes de cualquier efecto secundario.
+- Enlazado de cuentas solo por email verificado por Google (`email_verified = true`).
+- cURL endurecido: `CURLOPT_SSL_VERIFYPEER`/`VERIFYHOST`, timeouts, `client_secret` solo desde `env()`, nunca logueado.
+
 ## [1.14.3] — 2026-08-21
 
 ### Added
