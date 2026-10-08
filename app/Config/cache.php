@@ -1,18 +1,20 @@
 <?php
 
+use App\Lib\Cache\CacheInterface;
 use App\Lib\Cache\FileCache;
+use App\Lib\Cache\NullCache;
 
-function appCache(): FileCache
+function appCache(): CacheInterface
 {
     static $cache = null;
 
-    if ($cache instanceof FileCache) {
+    if ($cache instanceof CacheInterface) {
         return $cache;
     }
 
     // Saltar verificación del directorio si el caché está explícitamente deshabilitado.
     if (!filter_var(env('CACHE_ENABLED', true), FILTER_VALIDATE_BOOLEAN)) {
-        $cache = new FileCache('', false);
+        $cache = new NullCache();
         return $cache;
     }
 
@@ -20,7 +22,7 @@ function appCache(): FileCache
     if (!is_dir($cachePath)) {
         if (!mkdir($cachePath, 0777, true) && !is_dir($cachePath)) {
             trigger_error('Unable to create cache directory: ' . $cachePath, E_USER_WARNING);
-            $cache = new FileCache($cachePath, false);
+            $cache = new NullCache();
             return $cache;
         }
     }
@@ -31,14 +33,11 @@ function appCache(): FileCache
 
     if (!is_writable($cachePath)) {
         trigger_error('Cache directory is not writable: ' . $cachePath, E_USER_WARNING);
-        $cache = new FileCache($cachePath, false);
+        $cache = new NullCache();
         return $cache;
     }
 
-    $cache = new FileCache(
-        $cachePath,
-        (bool) env('CACHE_ENABLED', true)
-    );
+    $cache = new FileCache($cachePath);
 
     return $cache;
 }

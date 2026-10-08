@@ -3,6 +3,7 @@
 namespace App\Model;
 
 use App\Core\Model;
+use App\Lib\Cache\CacheInterface;
 
 class User extends Model
 {
@@ -10,16 +11,19 @@ class User extends Model
 
     private const CACHE_KEY_ALL_USERS = 'users.all';
 
-    public function __construct(\mysqli $connection)
+    private CacheInterface $cache;
+
+    public function __construct(\mysqli $connection, ?CacheInterface $cache = null)
     {
         parent::__construct($connection);
+        $this->cache = $cache ?? appCache();
     }
 
     public function getAll(): array
     {
         $ttl = (int) env('CACHE_TTL_USERS', 60);
 
-        return appCache()->remember(self::CACHE_KEY_ALL_USERS, $ttl, function (): array {
+        return $this->cache->remember(self::CACHE_KEY_ALL_USERS, $ttl, function (): array {
             $result = $this->db->query("SELECT * FROM users");
             $users  = [];
             while ($row = $result->fetch_assoc()) {
@@ -116,7 +120,7 @@ class User extends Model
         $stmt->close();
 
         if ($id > 0) {
-            appCache()->forget(self::CACHE_KEY_ALL_USERS);
+            $this->cache->forget(self::CACHE_KEY_ALL_USERS);
         }
 
         return $id;
@@ -132,7 +136,7 @@ class User extends Model
         $stmt->close();
 
         if ($success) {
-            appCache()->forget(self::CACHE_KEY_ALL_USERS);
+            $this->cache->forget(self::CACHE_KEY_ALL_USERS);
         }
 
         return $success;
@@ -172,7 +176,7 @@ class User extends Model
         $success = $stmt->affected_rows > 0;
         $stmt->close();
         if ($success) {
-            appCache()->forget(self::CACHE_KEY_ALL_USERS);
+            $this->cache->forget(self::CACHE_KEY_ALL_USERS);
         }
         return $success;
     }
@@ -207,7 +211,7 @@ class User extends Model
         $success = $stmt->affected_rows !== -1;
         $stmt->close();
         if ($success) {
-            appCache()->forget(self::CACHE_KEY_ALL_USERS);
+            $this->cache->forget(self::CACHE_KEY_ALL_USERS);
         }
         return $success;
     }
@@ -220,7 +224,7 @@ class User extends Model
         $success = $stmt->affected_rows > 0;
         $stmt->close();
         if ($success) {
-            appCache()->forget(self::CACHE_KEY_ALL_USERS);
+            $this->cache->forget(self::CACHE_KEY_ALL_USERS);
         }
         return $success;
     }
@@ -278,7 +282,7 @@ class User extends Model
         $success = $stmt->affected_rows !== -1;
         $stmt->close();
         if ($success) {
-            appCache()->forget(self::CACHE_KEY_ALL_USERS);
+            $this->cache->forget(self::CACHE_KEY_ALL_USERS);
         }
         return $success;
     }
@@ -302,7 +306,7 @@ class User extends Model
         $success = $stmt->affected_rows > 0;
         $stmt->close();
         if ($success) {
-            appCache()->forget(self::CACHE_KEY_ALL_USERS);
+            $this->cache->forget(self::CACHE_KEY_ALL_USERS);
         }
         return $success;
     }
@@ -322,7 +326,7 @@ class User extends Model
         $success = $stmt->affected_rows > 0;
         $stmt->close();
         if ($success) {
-            appCache()->forget(self::CACHE_KEY_ALL_USERS);
+            $this->cache->forget(self::CACHE_KEY_ALL_USERS);
         }
         return $success;
     }

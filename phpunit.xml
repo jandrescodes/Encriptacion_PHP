@@ -26,5 +26,7 @@
     <php>
         <env name="APP_ENV"       value="testing" force="true"/>
         <env name="CACHE_ENABLED" value="false"   force="true"/>
+        <env name="CACHE_DRIVER"  value="file"    force="true"/>
+        <env name="SESSION_DRIVER" value="file"   force="true"/>
     </php>
 </phpunit>

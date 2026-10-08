@@ -2,7 +2,7 @@
 
 namespace App\Lib\Cache;
 
-class FileCache
+class FileCache implements CacheInterface
 {
     public function __construct(
         private string $directory,
