@@ -16,3 +16,5 @@ public/storage/
 # Claude
 .claude
 .mcp.json
+# Config real de Redis (lleva la clave del usuario ACL)
+docs/redis/redis.conf
