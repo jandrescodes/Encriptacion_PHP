@@ -6,6 +6,7 @@ date_default_timezone_set(env('APP_TIMEZONE', 'America/La_Paz'));
 
 require_once __DIR__ . '/cache.php';
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/session.php';
 
 function session_start_secure(): void
 {
@@ -22,6 +23,7 @@ function session_start_secure(): void
     session_start();
 }
 
+configure_session_storage();
 session_start_secure();
 
 (new Auth($connection))->restoreFromCookie();
