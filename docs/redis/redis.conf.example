@@ -1,0 +1,13 @@
+# Overrides para redis-server/valkey-server en desarrollo (el último valor de cada directiva gana).
+# Sustituye CLAVE_LARGA por una clave aleatoria (openssl rand -hex 24); REDIS_PASSWORD en .env debe coincidir.
+
+bind 127.0.0.1 -::1
+protected-mode yes
+
+# Sin usuario por defecto: toda conexión debe autenticarse con el usuario de la app.
+user default off
+user encphp on >CLAVE_LARGA ~encphp:* ~encphp_test:* +@all -@dangerous -@admin
+
+# Caché y sesiones llevan TTL, así que volatile-lru solo expulsa lo que caduca.
+maxmemory 64mb
+maxmemory-policy volatile-lru
