@@ -81,9 +81,8 @@ final class SessionStorageTest extends TestCase
         $_ENV['SESSION_TIMEOUT'] = '600';
         $this->assertSame('redis', configure_session_storage());
 
-        $id = 'sesstest' . bin2hex(random_bytes(8));
-        session_id($id);
         session_start();
+        $id = session_id();
         $_SESSION['k'] = 'v';
         session_write_close();
 
@@ -100,5 +99,21 @@ final class SessionStorageTest extends TestCase
         $this->assertNotSame($id, $newId);
         $this->assertSame(0, $this->redis->exists($key));
         $this->assertSame(1, $this->redis->exists($this->redisConfig['prefix'] . 'sess:' . $newId));
+    }
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testStrictModeReplacesUnknownSessionId(): void
+    {
+        $_ENV['SESSION_DRIVER'] = 'redis';
+        $this->assertSame('redis', configure_session_storage());
+
+        $forged = 'forged' . bin2hex(random_bytes(8));
+        session_id($forged);
+        session_start();
+        $issued = session_id();
+        session_write_close();
+
+        $this->assertNotSame($forged, $issued);
     }
 }

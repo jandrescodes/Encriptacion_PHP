@@ -56,6 +56,8 @@ function configure_session_storage(): string
     ini_set('session.save_path', redis_session_save_path(RedisConnector::configFromEnv()));
     // El TTL de la clave en Redis es gc_maxlifetime: debe superar la inactividad que impone la app.
     ini_set('session.gc_maxlifetime', (string) ((int) env('SESSION_TIMEOUT', 1800) + 300));
+    // Rechaza IDs de sesión inventados por el cliente (mitiga session fixation).
+    ini_set('session.use_strict_mode', '1');
     // Mantiene el bloqueo por sesión del handler files (CSRF rotativo + peticiones AJAX concurrentes).
     ini_set('redis.session.locking_enabled', '1');
     ini_set('redis.session.lock_wait_time', '20000');
