@@ -32,7 +32,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.2"
-          extensions: mbstring, mysqli, openssl
+          extensions: mbstring, mysqli, openssl, redis
           coverage: none
           tools: composer:v2
 
@@ -48,6 +48,15 @@ jobs:
 
       - name: Import schema into test DB
         run: mysql -h 127.0.0.1 -u root login_test < database/schema_test.sql
+
+      - name: Start Valkey
+        run: |
+          docker run -d --name valkey -p 127.0.0.1:6379:6379 valkey/valkey:9.2 valkey-server --requirepass ci-secret
+          for i in $(seq 1 20); do
+            docker exec valkey valkey-cli -a ci-secret --no-auth-warning ping && exit 0
+            sleep 1
+          done
+          echo "Valkey no respondió" && exit 1
 
       - name: Create .env.testing
         run: |
@@ -68,6 +77,11 @@ jobs:
           REMEMBER_ME_ENABLED=true
           REMEMBER_ME_TTL=2592000
           SESSION_TIMEOUT=1800
+          REDIS_HOST=127.0.0.1
+          REDIS_PORT=6379
+          REDIS_PASSWORD=ci-secret
+          REDIS_DB=15
+          REDIS_PREFIX=encphp_test:
           EOF
 
       - name: Run PHPUnit
@@ -83,4 +97,5 @@ jobs:
           REMEMBER_ME_ENABLED: "true"
           REMEMBER_ME_TTL: "2592000"
           SESSION_TIMEOUT: "1800"
+          REDIS_REQUIRED: "true"
         run: vendor/bin/phpunit --colors=always
