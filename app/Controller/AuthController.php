@@ -8,6 +8,7 @@ use App\Model\ActivityLog;
 use App\Model\User;
 use App\Model\UserSession;
 use App\Service\GoogleOAuthService;
+use App\Service\LoginThrottle;
 use App\Service\MailerService;
 
 class AuthController extends Controller
@@ -50,6 +51,14 @@ class AuthController extends Controller
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btningresar'])) {
             $this->verifyCsrf('/login');
+
+            $retryAfter = LoginThrottle::fromEnv()?->hit($_SERVER['REMOTE_ADDR'] ?? '') ?? 0;
+            if ($retryAfter > 0) {
+                $minutes = (int) ceil($retryAfter / 60);
+                $_SESSION['message'] = "Too many login attempts. Try again in {$minutes} minute(s).";
+                $_SESSION['icon']    = 'warning';
+                $this->redirect('/login');
+            }
 
             if (!empty($_POST['usuario']) && !empty($_POST['password'])) {
                 $identifier = $_POST['usuario'];
