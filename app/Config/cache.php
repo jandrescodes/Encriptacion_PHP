@@ -3,6 +3,8 @@
 use App\Lib\Cache\CacheInterface;
 use App\Lib\Cache\FileCache;
 use App\Lib\Cache\NullCache;
+use App\Lib\Cache\RedisCache;
+use App\Lib\Redis\RedisConnector;
 
 function appCache(): CacheInterface
 {
@@ -15,6 +17,19 @@ function appCache(): CacheInterface
     // Saltar verificación del directorio si el caché está explícitamente deshabilitado.
     if (!filter_var(env('CACHE_ENABLED', true), FILTER_VALIDATE_BOOLEAN)) {
         $cache = new NullCache();
+        return $cache;
+    }
+
+    if (strtolower((string) env('CACHE_DRIVER', 'file')) === 'redis') {
+        $redis   = RedisConnector::fromEnv();
+        $version = (string) env('CACHE_VERSION', 'v1');
+        if (!RedisConnector::isValidNamespace($version)) {
+            $version = 'v1';
+        }
+
+        $cache = $redis !== null
+            ? new RedisCache($redis, RedisConnector::configFromEnv()['prefix'] . $version . ':cache:')
+            : new NullCache();
         return $cache;
     }
 
