@@ -47,7 +47,7 @@ SMTP_PORT=587
 
 APP_URL=http://localhost/Encriptacion_PHP/public
 APP_TIMEZONE=America/Bogota
-APP_VERSION=1.15.0
+APP_VERSION=1.16.0
 
 OAUTH_GOOGLE_ENABLED=false
 OAUTH_GOOGLE_CLIENT_ID=
@@ -56,6 +56,18 @@ OAUTH_GOOGLE_REDIRECT_URI=http://localhost/Encriptacion_PHP/public/auth/google/c
 
 CACHE_ENABLED=true
 CACHE_TTL_USERS=60
+CACHE_DRIVER=file
+CACHE_VERSION=v1
+SESSION_DRIVER=file
+
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_USERNAME=
+REDIS_PASSWORD=
+REDIS_DB=0
+REDIS_PREFIX=encphp:
+REDIS_CONNECT_TIMEOUT=0.2
+REDIS_READ_TIMEOUT=0.5
 
 REMEMBER_ME_ENABLED=true
 REMEMBER_ME_TTL=2592000
@@ -67,11 +79,20 @@ ACTIVE_SESSIONS_ENABLED=true
 LOGIN_LOCKOUT_ENABLED=true
 LOGIN_MAX_ATTEMPTS=5
 LOGIN_LOCKOUT_MINUTES=15
+
+LOGIN_IP_THROTTLE_ENABLED=false
+LOGIN_IP_MAX_ATTEMPTS=20
+LOGIN_IP_WINDOW=900
 ```
 
 The `.env` file is loaded by `vlucas/phpdotenv` in `app/Config/config.php`, which also defines the `APP_URL` constant and the `env()` helper.
 
 - `APP_VERSION` — displayed in the shared footer
+- `CACHE_DRIVER` — `file` (default) or `redis` (needs `ext-redis` + a Redis/Valkey server; see `docs/redis/redis.conf.example`). With Redis unreachable the app keeps working without cache
+- `CACHE_VERSION` — namespace version in Redis keys; bump it to invalidate the whole cache without `FLUSHDB`
+- `SESSION_DRIVER` — `file` (default) or `redis` (native phpredis handler, locking, `use_strict_mode=1`; falls back to files if Redis is down)
+- `REDIS_*` — connection (host, port, ACL user/password, db, key prefix `[a-z0-9_:-]`, short connect/read timeouts in seconds); only read when a Redis feature is enabled
+- `LOGIN_IP_THROTTLE_ENABLED` / `LOGIN_IP_MAX_ATTEMPTS` / `LOGIN_IP_WINDOW` — per-IP login throttle in Redis (default off, 20 attempts per 900 s); independent of `LOGIN_MAX_ATTEMPTS`, fails open if Redis is down
 - `REMEMBER_ME_ENABLED` — enable/disable persistent login via cookie (default `true`)
 - `REMEMBER_ME_TTL` — cookie + token lifetime in seconds (default `2592000` = 30 days)
 - `SESSION_TIMEOUT` — inactivity expiry in seconds (default `1800` = 30 min)
@@ -126,6 +147,7 @@ Browser → public/index.php → App\Core\Router → Controller::method()
 | `app/Config/config.php`                    | Loads `.env` via phpdotenv; defines `APP_URL` constant and `env()` helper                                                                                                                                                                                                                                                                                                                                                                      |
 | `app/Config/database.php`                  | `App\Config\Database` singleton — `Database::getConnection()` returns the shared `\mysqli` instance                                                                                                                                                                                                                                                                                                                                            |
 | `app/Config/cache.php`                     | Cache bootstrap; exposes `appCache()` with graceful fallback when cache dir is not writable                                                                                                                                                                                                                                                                                                                                                    |
+| `app/Config/session.php`                   | `configure_session_storage()` — switches PHP sessions to Redis (or `'files'` on fallback); called before `session_start_secure()`                                                                                                                                                                                                                                                                                                             |
 | `app/Config/autoload.php`                  | Bootstrap entry point: sets timezone, loads cache + database, defines `session_start_secure()` helper (httponly + samesite + secure), starts session, calls `Auth::restoreFromCookie()`                                                                                                                                                                                                                                                        |
 | `app/Core/Router.php`                      | `App\Core\Router` — registers GET/POST routes, strips APP_URL base path, dispatches to controller                                                                                                                                                                                                                                                                                                                                              |
 | `app/Core/Controller.php`                  | Abstract base — `render(string $view, array $data, bool $protected)` and `redirect(string $path)`                                                                                                                                                                                                                                                                                                                                              |
@@ -144,6 +166,7 @@ Browser → public/index.php → App\Core\Router → Controller::method()
 | `app/Model/ActivityLog.php`                | `App\Model\ActivityLog` — `log()` static (singleton DB), `logTo(\mysqli)` (test-injectable), `getAll(array $filters = [], ?int $limit = null, ?int $offset = null): array` (LEFT JOIN users, dynamic WHERE, prepared statements), `getTotalCount(array $filters = []): int`, `getCountTodayByEvent(string): int`, `getRecentEvents(int=5): array`; private `buildWhere(array): array`; event constants                                         |
 | `app/Model/UserSession.php`                | `App\Model\UserSession` — `create()`/static `createTo(\mysqli, ...)` (stores SHA-256 hash of the session token, never raw), `touch(hash)` (updates `last_activity`), `existsActive(hash, ttl): bool`, `getForUser(userId, currentHash): array` (marks `is_current` via hash comparison in SQL), `revoke(id, userId): bool` (scoped to owner), `revokeAllExcept(userId, currentHash): int`, `deleteByTokenHash(hash)`, `purgeExpired(ttl): int` |
 | `app/Service/GoogleOAuthService.php`       | `App\Service\GoogleOAuthService` — pure-PHP OAuth 2.0 + OpenID Connect client (no libraries): `buildAuthorizationUrl(state)`, `exchangeCodeForTokens(code)`, `fetchUserInfo(accessToken)`; cURL hardened (SSL verify, timeouts, `client_secret` only via `env()`, never logged). Credentials from `OAUTH_GOOGLE_CLIENT_ID`/`OAUTH_GOOGLE_CLIENT_SECRET`/`OAUTH_GOOGLE_REDIRECT_URI`                                                            |
+| `app/Service/LoginThrottle.php`            | Per-IP login attempt limit in Redis (`MULTI` + `INCR` + `EXPIRE NX`, SHA-256 of the IP in the key); `hit(ip)` returns 0 or the seconds to wait; `fromEnv()` is null when disabled/unavailable                                                                                                                                                                                                                                                  |
 | `app/Service/MailerService.php`            | PHPMailer encapsulation — SMTP via STARTTLS                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `views/layouts/header.php`                 | Shared `<head>` + nav for all protected pages; accepts `$pageTitle`, `$favicon`, `$bodyClass`, `$useDataTables`, `$pageStyles`                                                                                                                                                                                                                                                                                                                 |
 | `views/layouts/footer.php`                 | Shared footer with version; accepts `$useDataTables`, `$pageScripts`                                                                                                                                                                                                                                                                                                                                                                           |
@@ -257,13 +280,15 @@ Loaded **only** on pages that set `$useDataTables = true`. The flag loads the fu
 
 ### Cache
 
-- Implementation: `libs/Cache/FileCache.php` + `app/Config/cache.php`
+- Implementation: `libs/Cache/CacheInterface.php` with `FileCache` (default), `NullCache` (disabled/unavailable) and `RedisCache` (phpredis, `CACHE_DRIVER=redis`); `appCache()` in `app/Config/cache.php` picks one and `User` receives it via constructor (`?CacheInterface`)
+- Redis: `libs/Redis/RedisConnector.php` (short timeouts, ACL auth, one connection/failure per request); keys `{REDIS_PREFIX}{CACHE_VERSION}:cache:{key}` with native TTL; `unserialize` with `allowed_classes=false`; any `RedisException` degrades to no-cache for the request (never HTTP 500)
 - Cached query: users listing (`App\Model\User::getAll()`) with key `users.all`
 - TTL: `CACHE_TTL_USERS` (seconds)
 - Enable/disable: `CACHE_ENABLED=true|false`
 - Invalidation: on `create`, `update`, `delete`, `updatePassword` in `app/Model/User.php`
-- Runtime files: `storage/cache/*.cache`
+- Runtime files (file driver): `storage/cache/*.cache`
 - If the cache directory is not writable, cache is disabled for the request and a warning is logged (no HTTP 500)
+- `login_attempts` (per-user lockout) and `user_sessions` (revocation source of truth) deliberately stay in MySQL: with Redis down they would fail open (brute force / revoked sessions accepted) and they rely on SQL listing + FK cascade. Rationale in `docs/redis/por-que-mysql.md`
 
 ## Security Patterns
 
@@ -287,6 +312,8 @@ Loaded **only** on pages that set `$useDataTables = true`. The flag loads the fu
 - User delete uses POST — not exploitable via `<img>` tags or link prefetch; `users-delete.js` dynamically creates and submits a form with the CSRF token after SweetAlert2 confirmation
 - **Admin self-protection**: `UserController::delete()` blocks deletion of the authenticated admin's own account; `UserController::edit()` blocks removing one's own `is_admin` flag
 - Flash messages rendered via `json_encode()` in `views/layouts/messages.php` — prevents XSS from user-controlled values (e.g. `first_name`) injected into the JavaScript SweetAlert2 call
+- **Redis sessions**: payload (`session_token`, `csrf_token`, `oauth_google_state`) is stored in clear, as it is today in the session files; the Redis key is the session ID, so anyone who can read Redis can hijack sessions. Mitigation is operational: local `bind`, ACL user without `@dangerous`/`@admin`, no persistence (`docs/redis/redis.conf.example`). Encrypting the payload would need a custom `SessionHandlerInterface` (not implemented). `session.use_strict_mode=1` is set only with the Redis driver
+- **IP login throttle**: separate from the per-user lockout; IP stored as SHA-256, fixed window, fails open on Redis errors; message "Too many login attempts. Try again in N minute(s)."
 - **Account lockout**: `LoginAttempt::registerFailure()` uses `INSERT ... ON DUPLICATE KEY UPDATE` with `attempts + 1` evaluated in SQL — atomic, no read-modify-write race; `locked_until` set when `attempts >= LOGIN_MAX_ATTEMPTS`; all date math done in MySQL (`NOW()`, `DATE_ADD`, `TIMESTAMPDIFF`) to avoid PHP/MySQL drift; only tracked for existing usernames (`Auth::userExists()` checked before registering)
 - **Custom error pages**: `views/errors/404.php`, `403.php`, `500.php` — standalone (no DB/session dependency), rendered by Router (404), AuthMiddleware::admin() (403) and Database::getConnection() (500); DB errors logged via `error_log()`, never exposed to the browser
 - **Active sessions / server-side revocation**: every login (password or remember-me) creates a `user_sessions` row keyed by SHA-256 hash of a random `session_token` (never stored raw); `AuthMiddleware::session()` runs on every protected request, checks `existsActive()` against `SESSION_TIMEOUT`, and force-logs-out (destroy session + redirect `/login`) if the row was deleted (i.e. revoked from another device); `SessionController` lets a user list/revoke their own sessions — `revoke()`/`revokeOthers()` always scope `DELETE` to `user_id` so one user cannot revoke another's session; gated by `ACTIVE_SESSIONS_ENABLED`
@@ -296,7 +323,7 @@ Loaded **only** on pages that set `$useDataTables = true`. The flag loads the fu
 ### Stack
 
 - **PHPUnit ^11.0** — integration + unit tests against a real MySQL database (`login_test`)
-- **95 tests total:** 14 in `tests/Unit/UserTest.php` (User model), 7 in `tests/Unit/LoginAttemptTest.php` (LoginAttempt model), 18 in `tests/Unit/ActivityLogTest.php` (ActivityLog model), 13 in `tests/Unit/UserSessionTest.php` (UserSession model), 14 in `tests/Unit/UserOAuthTest.php` (OAuth User helpers), 19 in `tests/Integration/AuthTest.php` (Auth class), 10 in `tests/Integration/AuthGoogleCallbackTest.php` (Google OAuth callback) — 66 unit + 29 integration
+- **143 tests total:** 14 in `tests/Unit/UserTest.php` (User model), 7 in `tests/Unit/LoginAttemptTest.php` (LoginAttempt model), 18 in `tests/Unit/ActivityLogTest.php` (ActivityLog model), 13 in `tests/Unit/UserSessionTest.php` (UserSession model), 14 in `tests/Unit/UserOAuthTest.php` (OAuth User helpers), 19 in `tests/Integration/AuthTest.php` (Auth class), 10 in `tests/Integration/AuthGoogleCallbackTest.php` (Google OAuth callback) ; plus 10 in `tests/Unit/Cache/FileCacheTest.php`, 17 in `tests/Unit/Cache/RedisCacheTest.php` (both extend `CacheContractTestCase`), 11 in `tests/Integration/UserCacheRedisTest.php`, 6 in `tests/Integration/SessionStorageTest.php` (session handler, uses `#[RunInSeparateProcess]`) and 4 in `tests/Integration/LoginThrottleTest.php` — 93 unit + 50 integration. Redis tests hit a real server (DB 15, prefix `encphp_test:`; `Tests\Support\InteractsWithRedis` refuses DB 0 or a prefix without `test`) and are skipped when it is absent unless `REDIS_REQUIRED=true` (CI)
 - **CI:** `.github/workflows/tests.yml` — runs on push/PR to `master` with a MySQL 8.0 service
 
 ### Running tests locally
@@ -308,9 +335,9 @@ mysql -u root -p login_test < database/schema_test.sql
 
 # Create .env.testing with DB_DATABASE=login_test (never login)
 # Then run:
-composer test              # full suite (95 tests)
-composer test:unit         # models + OAuth helpers (66 tests)
-composer test:integration  # Auth + Google OAuth callback (29 tests)
+composer test              # full suite (143 tests)
+composer test:unit         # models + OAuth helpers + cache (93 tests)
+composer test:integration  # Auth + Google OAuth callback + Redis (cache invalidation, sessions, IP throttle) (50 tests)
 ```
 
 ### Key conventions

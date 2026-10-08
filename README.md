@@ -2,7 +2,7 @@
 
 # SecureAuth — PHP MVC Authentication System
 
-[![Version](https://img.shields.io/badge/version-1.15.0-blue.svg?style=flat-square)](https://github.com/jandrescodes/Encriptacion_PHP/releases/tag/1.15.0)
+[![Version](https://img.shields.io/badge/version-1.16.0-blue.svg?style=flat-square)](https://github.com/jandrescodes/Encriptacion_PHP/releases/tag/1.16.0)
 [![Tests](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml/badge.svg)](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml)
 [![PHP Version](https://img.shields.io/badge/PHP->=8.2-777BB4.svg?style=flat-square&logo=php)](https://php.net/)
 [![PHPMailer](https://img.shields.io/badge/PHPMailer-^6.9-1F3B5F.svg?style=flat-square)](https://github.com/PHPMailer/PHPMailer)
@@ -88,10 +88,10 @@ Full audit trail with server-side filtering by event type, username, and date ra
 **Architecture & Tooling**
 
 - Custom MVC core (`App\Core\Router`, `Controller`, `Model`) with PSR-4 autoloading via Composer
-- File-based cache for the users listing, with automatic invalidation on writes
+- Cache for the users listing (file by default, optional Redis/Valkey), with automatic invalidation on writes; optional Redis-backed PHP sessions and per-IP login throttling — everything degrades gracefully if Redis is down
 - DataTables-powered tables with export (Copy, PDF, Excel, CSV, Print) and column visibility toggle
 - SweetAlert2 notifications for CRUD and authentication feedback
-- 95-test PHPUnit suite (unit + integration) running against a real MySQL database, with CI via GitHub Actions
+- 143-test PHPUnit suite (unit + integration) running against a real MySQL database, with CI via GitHub Actions
 
 > See [Security](#security) below for how each of these is implemented under the hood.
 
@@ -237,6 +237,8 @@ All routes are declared in `routes/web.php` and dispatched by `App\Core\Router`:
 - **Account lockout** — 5 consecutive failed logins lock the account for 15 min (configurable); only tracked for existing usernames; lockout cleared on successful login or password reset
 - **Custom error pages** — 404, 403, 500 views are standalone (no DB/session dependency); DB errors logged via `error_log()`, never exposed to the browser
 - **Audit log** — `ActivityLog::log()` wrapped in try/catch so a logging failure never aborts the main flow; IP from `$_SERVER['REMOTE_ADDR']` only; records preserved via FK `ON DELETE SET NULL` when user is deleted
+- **Redis sessions (optional)** — `SESSION_DRIVER=redis` uses the native phpredis handler with locking and `session.use_strict_mode=1`; falls back to files if Redis is unreachable. Session payload (`session_token`, CSRF token, OAuth `state`) is stored in clear in Redis, like in the session files today, and the key is the session ID: protect Redis with the ACL user, local `bind` and no persistence (`docs/redis/redis.conf.example`)
+- **Per-IP login throttle (optional)** — `LOGIN_IP_THROTTLE_ENABLED=true` limits login attempts per IP (`LOGIN_IP_MAX_ATTEMPTS` per `LOGIN_IP_WINDOW` seconds) with Redis `INCR` + `EXPIRE`; the IP is stored as a SHA-256 hash and it fails open if Redis is down (the per-account lockout still applies)
 - **Active sessions** — every login stores only the SHA-256 hash of a random session token in `user_sessions` (never the raw token); `AuthMiddleware::session()` checks the hash on protected requests and force-logs-out the browser if the row was revoked; revoke/revoke-others queries are always scoped to `user_id`, so one user cannot terminate another's session
 
 ## Cache
@@ -244,9 +246,9 @@ All routes are declared in `routes/web.php` and dispatched by `App\Core\Router`:
 - Cached endpoint: `/users` listing (`App\Model\User::getAll()`)
 - Cache key: `users.all`
 - Invalidation: on create, edit, delete, and password update
-- Controls: `CACHE_ENABLED=true|false`, `CACHE_TTL_USERS=<seconds>`
-- Storage: `storage/cache/*.cache`
-- If the directory is not writable, cache is disabled for the request and a warning is logged (no HTTP 500)
+- Controls: `CACHE_ENABLED=true|false`, `CACHE_TTL_USERS=<seconds>`, `CACHE_DRIVER=file|redis` (default `file`), `CACHE_VERSION` (bump it to invalidate everything in Redis)
+- File driver storage: `storage/cache/*.cache`; if the directory is not writable, cache is disabled for the request and a warning is logged (no HTTP 500)
+- Redis driver (optional, needs `ext-redis` and a Redis/Valkey server): keys are `{REDIS_PREFIX}{CACHE_VERSION}:cache:users.all` with a native TTL. If Redis is down or misconfigured the app keeps working without cache (one log line per request, no HTTP 500). Connection settings: `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD`, `REDIS_DB`, `REDIS_PREFIX`, `REDIS_CONNECT_TIMEOUT`, `REDIS_READ_TIMEOUT`. A hardened server config lives in `docs/redis/redis.conf.example` (keep your real `redis.conf` out of Git). `login_attempts` and `user_sessions` intentionally stay in MySQL — see `docs/redis/por-que-mysql.md`
 
 ## Testing
 
@@ -267,8 +269,8 @@ cp .env.testing.example .env.testing
 composer test
 
 # Run by suite
-composer test:unit         # App\Model\User + App\Model\LoginAttempt + App\Model\ActivityLog + App\Model\UserSession + App\Model\User OAuth helpers — 66 tests
-composer test:integration  # App\Core\Auth + Google OAuth callback — 29 tests
+composer test:unit         # models + OAuth helpers + cache — 93 tests
+composer test:integration  # Auth + Google OAuth callback + Redis (cache invalidation, sessions, IP throttle) — 50 tests
 ```
 
 ### CI

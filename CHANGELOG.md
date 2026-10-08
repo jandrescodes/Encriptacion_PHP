@@ -6,6 +6,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 > Note: Entries before `1.3.1` may reference legacy paths (`config/`, `controllers/`, `model/`) that were moved to `app/Config/`, `app/Controller/`, and `app/Model/`.
 
+## [1.16.0] — 2026-10-08
+
+### Added
+
+- **Driver de caché Redis/Valkey** seleccionable con `CACHE_DRIVER=file|redis` (default `file`, sin cambios si no se configura):
+  - `CacheInterface` con `FileCache`, `NullCache` y el nuevo `RedisCache` (phpredis); `User` recibe la caché por constructor (`?CacheInterface`, por defecto `appCache()`).
+  - `App\Lib\Redis\RedisConnector`: timeouts cortos, auth por ACL (`REDIS_USERNAME`/`REDIS_PASSWORD`), `REDIS_DB`, prefijo validado y una sola conexión (o un solo fallo) por petición.
+  - Claves `{REDIS_PREFIX}{CACHE_VERSION}:cache:{key}` con TTL nativo; subir `CACHE_VERSION` invalida en bloque sin `FLUSHDB`. `unserialize` con `allowed_classes=false`.
+  - Con Redis caído, sin la extensión o con credenciales erróneas, `appCache()` devuelve `NullCache`: la app responde 200 y deja una sola línea en el log, sin credenciales.
+  - Nuevas variables: `CACHE_DRIVER`, `CACHE_VERSION`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD`, `REDIS_DB`, `REDIS_PREFIX`, `REDIS_CONNECT_TIMEOUT`, `REDIS_READ_TIMEOUT`.
+  - `docs/redis/redis.conf.example`: bind local, usuario `default` desactivado, usuario ACL sin `@dangerous`/`@admin`, `maxmemory` + `volatile-lru`; `ext-redis` como `suggest` en `composer.json`.
+- **Sesiones PHP en Redis** con `SESSION_DRIVER=file|redis` (default `file`), en `app/Config/session.php`:
+  - Handler nativo de phpredis con locking activo (CSRF rotativo y peticiones AJAX concurrentes), claves `{REDIS_PREFIX}sess:{id}` y TTL `SESSION_TIMEOUT + 300`.
+  - `session.use_strict_mode=1` solo con el driver Redis: rechaza IDs de sesión inventados por el cliente.
+  - Si Redis no responde al arrancar, la sesión vuelve a archivos (una línea en el log, nunca HTTP 500).
+- **Límite de intentos de login por IP** (`App\Service\LoginThrottle`, Redis `INCR` + `EXPIRE NX` en `MULTI`, ventana fija), detrás de `LOGIN_IP_THROTTLE_ENABLED` (default `false`):
+  - Independiente del bloqueo por usuario de MySQL; la IP se guarda como SHA-256 y, si Redis falla, deja pasar (el bloqueo por usuario sigue protegiendo las cuentas).
+  - Nuevas variables: `SESSION_DRIVER`, `LOGIN_IP_THROTTLE_ENABLED`, `LOGIN_IP_MAX_ATTEMPTS` (20), `LOGIN_IP_WINDOW` (900 s).
+- `docs/redis/por-que-mysql.md`: justificación de por qué `login_attempts` y `user_sessions` se quedan en MySQL (con Redis caído fallarían abiertos).
+- 48 tests nuevos (143 en total) contra Redis real (DB 15, prefijo `encphp_test:`, nunca `FLUSHDB`): contrato de caché compartido por `FileCache` y `RedisCache`, degradación, invalidación de las 8 escrituras de `User` (`tests/Integration/UserCacheRedisTest.php`), almacenamiento de sesiones (`SessionStorageTest`) y límite por IP (`LoginThrottleTest`). Sin Redis salen como skipped, salvo `REDIS_REQUIRED=true` (CI), donde fallan.
+- CI: servicio Valkey con `--requirepass` y extensión `redis` en `setup-php`.
+
+### Changed
+
+- `.gitignore` ignora `docs/redis/redis.conf` (la config real lleva la clave del usuario ACL); solo se versiona el `.example`.
+- `appCache()` devuelve `CacheInterface`; la caché deshabilitada o con directorio no escribible usa `NullCache` en vez de un `FileCache` apagado.
+
 ## [1.15.0] — 2026-09-12
 
 ### Added
