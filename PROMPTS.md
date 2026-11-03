@@ -63,6 +63,9 @@ _______________
 - DataTables: pasar useDataTables: true + pageScripts en el render del controller que lo necesite
 - No introducir librerías nuevas sin aprobación
 - Passwords: password_hash() al guardar, password_verify() al validar — nunca MD5/SHA1
+- Caché: usar `CacheInterface` mediante `appCache()`; Redis es opcional (`CACHE_DRIVER=redis`) y
+  debe degradar a `NullCache` si no está disponible. `User::getAll()` usa `users.all`;
+  Activity Log usa claves `activity_log.*` específicas por consulta con TTL de 60 segundos.
 
 [Formato de salida]
 _______________
@@ -103,7 +106,9 @@ Descripción: [criterios de aceptación]
 - Detección de POST: isset($_POST['btnXXX']) — no !empty() — porque <button> sin value envía string vacío
 - Guards al inicio del método: AuthMiddleware::timeout() + AuthMiddleware::admin() o auth()
 - CSRF: todos los formularios POST deben incluir `<input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">` y el controller debe llamar `$this->verifyCsrf($redirectPath)` al inicio del bloque POST — el token **se rota tras cada verificación exitosa** (`Csrf::verify()` elimina el token de sesión, forzando regeneración en el siguiente `token()`)
-- Invalidar caché en operaciones write: appCache()->delete('users.all') o el key correspondiente
+- Invalidar la caché correspondiente en operaciones write: el listado de usuarios invalida
+  `users.all`; Activity Log usa claves query-specific con TTL de 60 segundos y no requiere
+  invalidación global para cada nuevo evento
 - Vistas protegidas solo tienen contenido (sin <html>/<head>/<body>) — el layout lo pone render()
 - No agregar comentarios obvios — solo donde el WHY no sea evidente
 - No usar `session_start()` directamente — usar siempre `session_start_secure()` (definido en `app/Config/autoload.php`)
@@ -326,6 +331,10 @@ Métodos a cubrir: [lista]
 - Comparaciones de fechas contra MySQL: usar DATE_SUB(NOW(), INTERVAL X HOUR) — no timestamps PHP
 - Cada test independiente: no depender del orden de ejecución
 - Ubicar en tests/Unit/ si cubre una clase aislada, tests/Integration/ si orquesta varias
+- Para pruebas Redis reales, usar `Tests\Support\InteractsWithRedis`, DB distinta de 0
+  y prefijo que contenga `test`; nunca usar `FLUSHDB`/`FLUSHALL`
+- Las pruebas Redis de caché deben comprobar existencia de claves, TTL y comportamiento
+  de hit/miss; sin Redis se omiten salvo `REDIS_REQUIRED=true`
 
 [Formato de salida]
 1. Archivo tests/[Suite]/[Clase]Test.php completo
@@ -583,5 +592,5 @@ Al final: queries SQL finales, consideraciones de seguridad, checklist de testin
 
 ---
 
-_Última actualización: 2026-09-12 — v1.15.0 (Google OAuth: ejemplo real nuevo de plantilla de feature con integración externa + edge cases; incluye el fix SameSite=Lax en la cookie de sesión para que sobreviva el callback cross-site)_
+_Última actualización: 2026-11-03 — v1.17.0 (caché Redis para Activity Log, pruebas de integración Redis y documentación sincronizada)_
 _Mantener sincronizado con CLAUDE.md al agregar features nuevas._

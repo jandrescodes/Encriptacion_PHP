@@ -88,10 +88,10 @@ Full audit trail with server-side filtering by event type, username, and date ra
 **Architecture & Tooling**
 
 - Custom MVC core (`App\Core\Router`, `Controller`, `Model`) with PSR-4 autoloading via Composer
-- Cache for the users listing (file by default, optional Redis/Valkey), with automatic invalidation on writes; optional Redis-backed PHP sessions and per-IP login throttling — everything degrades gracefully if Redis is down
+- Cache for the users listing and Activity Log queries (file by default, optional Redis/Valkey); user-list cache invalidates on writes and Activity Log results expire after 60 seconds. Optional Redis-backed PHP sessions and per-IP login throttling degrade gracefully if Redis is down
 - DataTables-powered tables with export (Copy, PDF, Excel, CSV, Print) and column visibility toggle
 - SweetAlert2 notifications for CRUD and authentication feedback
-- 143-test PHPUnit suite (unit + integration) running against a real MySQL database, with CI via GitHub Actions
+- 145-test PHPUnit suite (unit + integration) running against a real MySQL database, with CI via GitHub Actions
 
 > See [Security](#security) below for how each of these is implemented under the hood.
 
@@ -243,12 +243,13 @@ All routes are declared in `routes/web.php` and dispatched by `App\Core\Router`:
 
 ## Cache
 
-- Cached endpoint: `/users` listing (`App\Model\User::getAll()`)
-- Cache key: `users.all`
-- Invalidation: on create, edit, delete, and password update
+- Cached queries: `/users` listing (`App\Model\User::getAll()`) and Activity Log queries
+- Cache keys: `users.all` and `activity_log.*` (query-specific keys)
+- User-list invalidation: on create, edit, delete, and password update
+- Activity Log freshness: query-specific entries expire after 60 seconds; new log events do not invalidate existing entries immediately
 - Controls: `CACHE_ENABLED=true|false`, `CACHE_TTL_USERS=<seconds>`, `CACHE_DRIVER=file|redis` (default `file`), `CACHE_VERSION` (bump it to invalidate everything in Redis)
 - File driver storage: `storage/cache/*.cache`; if the directory is not writable, cache is disabled for the request and a warning is logged (no HTTP 500)
-- Redis driver (optional, needs `ext-redis` and a Redis/Valkey server): keys are `{REDIS_PREFIX}{CACHE_VERSION}:cache:users.all` with a native TTL. If Redis is down or misconfigured the app keeps working without cache (one log line per request, no HTTP 500). Connection settings: `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD`, `REDIS_DB`, `REDIS_PREFIX`, `REDIS_CONNECT_TIMEOUT`, `REDIS_READ_TIMEOUT`. A hardened server config lives in `docs/redis/redis.conf.example` (keep your real `redis.conf` out of Git). `login_attempts` and `user_sessions` intentionally stay in MySQL — see `docs/redis/por-que-mysql.md`
+- Redis driver (optional, needs `ext-redis` and a Redis/Valkey server): keys use `{REDIS_PREFIX}{CACHE_VERSION}:cache:` with native TTLs. User and Activity Log query results expire after 60 seconds. If Redis is down or misconfigured the app keeps working without cache (one log line per request, no HTTP 500). Connection settings: `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD`, `REDIS_DB`, `REDIS_PREFIX`, `REDIS_CONNECT_TIMEOUT`, `REDIS_READ_TIMEOUT`. A hardened server config lives in `docs/redis/redis.conf.example` (keep your real `redis.conf` out of Git). `login_attempts` and `user_sessions` intentionally stay in MySQL — see `docs/redis/por-que-mysql.md`
 
 ## Testing
 
@@ -270,7 +271,7 @@ composer test
 
 # Run by suite
 composer test:unit         # models + OAuth helpers + cache — 93 tests
-composer test:integration  # Auth + Google OAuth callback + Redis (cache invalidation, sessions, IP throttle) — 50 tests
+composer test:integration  # Auth + Google OAuth callback + Redis (cache, sessions, IP throttle) — 52 tests
 ```
 
 ### CI

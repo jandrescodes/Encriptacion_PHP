@@ -282,7 +282,7 @@ Loaded **only** on pages that set `$useDataTables = true`. The flag loads the fu
 
 - Implementation: `libs/Cache/CacheInterface.php` with `FileCache` (default), `NullCache` (disabled/unavailable) and `RedisCache` (phpredis, `CACHE_DRIVER=redis`); `appCache()` in `app/Config/cache.php` picks one and `User` receives it via constructor (`?CacheInterface`)
 - Redis: `libs/Redis/RedisConnector.php` (short timeouts, ACL auth, one connection/failure per request); keys `{REDIS_PREFIX}{CACHE_VERSION}:cache:{key}` with native TTL; `unserialize` with `allowed_classes=false`; any `RedisException` degrades to no-cache for the request (never HTTP 500)
-- Cached query: users listing (`App\Model\User::getAll()`) with key `users.all`
+- Cached queries: users listing (`App\Model\User::getAll()`) with key `users.all`, plus Activity Log queries with `activity_log.*` keys and a 60-second TTL
 - TTL: `CACHE_TTL_USERS` (seconds)
 - Enable/disable: `CACHE_ENABLED=true|false`
 - Invalidation: on `create`, `update`, `delete`, `updatePassword` in `app/Model/User.php`
@@ -323,7 +323,7 @@ Loaded **only** on pages that set `$useDataTables = true`. The flag loads the fu
 ### Stack
 
 - **PHPUnit ^11.0** — integration + unit tests against a real MySQL database (`login_test`)
-- **143 tests total:** 14 in `tests/Unit/UserTest.php` (User model), 7 in `tests/Unit/LoginAttemptTest.php` (LoginAttempt model), 18 in `tests/Unit/ActivityLogTest.php` (ActivityLog model), 13 in `tests/Unit/UserSessionTest.php` (UserSession model), 14 in `tests/Unit/UserOAuthTest.php` (OAuth User helpers), 19 in `tests/Integration/AuthTest.php` (Auth class), 10 in `tests/Integration/AuthGoogleCallbackTest.php` (Google OAuth callback) ; plus 10 in `tests/Unit/Cache/FileCacheTest.php`, 17 in `tests/Unit/Cache/RedisCacheTest.php` (both extend `CacheContractTestCase`), 11 in `tests/Integration/UserCacheRedisTest.php`, 6 in `tests/Integration/SessionStorageTest.php` (session handler, uses `#[RunInSeparateProcess]`) and 4 in `tests/Integration/LoginThrottleTest.php` — 93 unit + 50 integration. Redis tests hit a real server (DB 15, prefix `encphp_test:`; `Tests\Support\InteractsWithRedis` refuses DB 0 or a prefix without `test`) and are skipped when it is absent unless `REDIS_REQUIRED=true` (CI)
+- **145 tests total:** 14 in `tests/Unit/UserTest.php` (User model), 7 in `tests/Unit/LoginAttemptTest.php` (LoginAttempt model), 18 in `tests/Unit/ActivityLogTest.php` (ActivityLog model), 13 in `tests/Unit/UserSessionTest.php` (UserSession model), 14 in `tests/Unit/UserOAuthTest.php` (OAuth User helpers), 19 in `tests/Integration/AuthTest.php` (Auth class), 10 in `tests/Integration/AuthGoogleCallbackTest.php` (Google OAuth callback) ; plus 10 in `tests/Unit/Cache/FileCacheTest.php`, 17 in `tests/Unit/Cache/RedisCacheTest.php` (both extend `CacheContractTestCase`), 11 in `tests/Integration/UserCacheRedisTest.php`, 2 in `tests/Integration/ActivityLogCacheRedisTest.php`, 6 in `tests/Integration/SessionStorageTest.php` (session handler, uses `#[RunInSeparateProcess]`) and 4 in `tests/Integration/LoginThrottleTest.php` — 93 unit + 52 integration. Redis tests hit a real server (DB 15, prefix `encphp_test:`; `Tests\Support\InteractsWithRedis` refuses DB 0 or a prefix without `test`) and are skipped when it is absent unless `REDIS_REQUIRED=true` (CI)
 - **CI:** `.github/workflows/tests.yml` — runs on push/PR to `master` with a MySQL 8.0 service
 
 ### Running tests locally
@@ -335,9 +335,9 @@ mysql -u root -p login_test < database/schema_test.sql
 
 # Create .env.testing with DB_DATABASE=login_test (never login)
 # Then run:
-composer test              # full suite (143 tests)
+composer test              # full suite (145 tests)
 composer test:unit         # models + OAuth helpers + cache (93 tests)
-composer test:integration  # Auth + Google OAuth callback + Redis (cache invalidation, sessions, IP throttle) (50 tests)
+composer test:integration  # Auth + Google OAuth callback + Redis (cache, sessions, IP throttle) (52 tests)
 ```
 
 ### Key conventions

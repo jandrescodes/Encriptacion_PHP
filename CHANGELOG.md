@@ -6,6 +6,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 > Note: Entries before `1.3.1` may reference legacy paths (`config/`, `controllers/`, `model/`) that were moved to `app/Config/`, `app/Controller/`, and `app/Model/`.
 
+## [1.17.0] — 2026-11-03 (proposed tag: `v1.17.0`)
+
+### Added
+
+- **Caché Redis para Activity Log**:
+  - `ActivityLog` acepta una caché inyectable y usa `appCache()` por defecto.
+  - `getAll()`, `getTotalCount()`, `getRecentEvents()` y `getCountTodayByEvent()` almacenan resultados en claves `activity_log.*` específicas de cada consulta.
+  - Los resultados tienen un TTL de 60 segundos; los datos nuevos pueden tardar ese tiempo en reflejarse en consultas ya cacheadas.
+  - Redis conserva la degradación existente: si no está disponible, las consultas continúan directamente contra MySQL mediante `NullCache`.
+- `tests/Integration/ActivityLogCacheRedisTest.php`: pruebas contra Redis real para creación de claves, TTL y reutilización del resultado cacheado.
+
+### Changed
+
+- La documentación de caché, Redis y pruebas ahora incluye Activity Log y refleja 145 pruebas totales (93 unitarias y 52 de integración).
+
 ## [1.16.0] — 2026-10-08
 
 ### Added
