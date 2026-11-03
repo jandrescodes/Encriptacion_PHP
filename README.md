@@ -2,7 +2,7 @@
 
 # SecureAuth — PHP MVC Authentication System
 
-[![Version](https://img.shields.io/badge/version-1.16.0-blue.svg?style=flat-square)](https://github.com/jandrescodes/Encriptacion_PHP/releases/tag/1.16.0)
+[![Version](https://img.shields.io/badge/version-1.17.0-blue.svg?style=flat-square)](https://github.com/jandrescodes/Encriptacion_PHP/releases/tag/1.17.0)
 [![Tests](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml/badge.svg)](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml)
 [![PHP Version](https://img.shields.io/badge/PHP->=8.2-777BB4.svg?style=flat-square&logo=php)](https://php.net/)
 [![PHPMailer](https://img.shields.io/badge/PHPMailer-^6.9-1F3B5F.svg?style=flat-square)](https://github.com/PHPMailer/PHPMailer)

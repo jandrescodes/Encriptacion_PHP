@@ -6,7 +6,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 > Note: Entries before `1.3.1` may reference legacy paths (`config/`, `controllers/`, `model/`) that were moved to `app/Config/`, `app/Controller/`, and `app/Model/`.
 
-## [1.17.0] — 2026-11-03 (proposed tag: `v1.17.0`)
+## [1.17.0] — 2026-11-03
 
 ### Added
 
