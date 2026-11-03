@@ -3,10 +3,13 @@
 namespace App\Model;
 
 use App\Config\Database;
+use App\Lib\Cache\CacheInterface;
 use App\Core\Model;
 
 class ActivityLog extends Model
 {
+    private const CACHE_TTL_SECONDS = 60;
+
     public const EVENT_LOGIN_SUCCESS    = 'login_success';
     public const EVENT_LOGIN_FAILED     = 'login_failed';
     public const EVENT_LOGOUT           = 'logout';
@@ -17,10 +20,13 @@ class ActivityLog extends Model
     public const EVENT_USER_DELETED     = 'user_deleted';
     public const EVENT_SESSION_REVOKED  = 'session_revoked';
 
-    public function __construct(\mysqli $connection)
+    public function __construct(\mysqli $connection, ?CacheInterface $cache = null)
     {
         parent::__construct($connection);
+        $this->cache = $cache ?? appCache();
     }
+
+    private CacheInterface $cache;
 
     public static function log(string $event, string $description, ?int $userId = null): void
     {
@@ -45,6 +51,15 @@ class ActivityLog extends Model
 
     public function getCountTodayByEvent(string $event): int
     {
+        return $this->cache->remember(
+            'activity_log.count_today.' . sha1($event),
+            self::CACHE_TTL_SECONDS,
+            fn(): int => $this->queryCountTodayByEvent($event)
+        );
+    }
+
+    private function queryCountTodayByEvent(string $event): int
+    {
         $stmt = $this->db->prepare(
             "SELECT COUNT(*) AS total
              FROM activity_logs
@@ -58,6 +73,15 @@ class ActivityLog extends Model
     }
 
     public function getRecentEvents(int $limit = 5): array
+    {
+        return $this->cache->remember(
+            'activity_log.recent.' . $limit,
+            self::CACHE_TTL_SECONDS,
+            fn(): array => $this->queryRecentEvents($limit)
+        );
+    }
+
+    private function queryRecentEvents(int $limit): array
     {
         $stmt = $this->db->prepare(
             "SELECT al.id, al.created_at, al.event, al.description, al.ip_address,
@@ -79,6 +103,17 @@ class ActivityLog extends Model
     }
 
     public function getAll(array $filters = [], ?int $limit = null, ?int $offset = null): array
+    {
+        $key = 'activity_log.all.' . sha1(serialize([$filters, $limit, $offset]));
+
+        return $this->cache->remember(
+            $key,
+            self::CACHE_TTL_SECONDS,
+            fn(): array => $this->queryAll($filters, $limit, $offset)
+        );
+    }
+
+    private function queryAll(array $filters, ?int $limit, ?int $offset): array
     {
         $where = $this->buildWhere($filters);
 
@@ -121,6 +156,17 @@ class ActivityLog extends Model
     }
 
     public function getTotalCount(array $filters = []): int
+    {
+        $key = 'activity_log.total.' . sha1(serialize($filters));
+
+        return $this->cache->remember(
+            $key,
+            self::CACHE_TTL_SECONDS,
+            fn(): int => $this->queryTotalCount($filters)
+        );
+    }
+
+    private function queryTotalCount(array $filters): int
     {
         $where = $this->buildWhere($filters);
 
