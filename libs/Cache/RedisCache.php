@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Lib\Cache;
 
 class RedisCache implements CacheInterface
@@ -9,7 +11,8 @@ class RedisCache implements CacheInterface
     public function __construct(
         private \Redis $redis,
         private string $namespace
-    ) {}
+    ) {
+    }
 
     public function get(string $key): mixed
     {

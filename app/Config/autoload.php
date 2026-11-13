@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Core\Auth;
 
 date_default_timezone_set(env('APP_TIMEZONE', 'America/La_Paz'));

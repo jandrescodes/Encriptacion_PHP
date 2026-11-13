@@ -70,7 +70,7 @@ final class RedisCacheTest extends CacheContractTestCase
         $cache = $this->makeCache();
 
         $this->assertNull($cache->get('corrupt'));
-        $this->assertSame('fresh', $cache->remember('corrupt', 60, fn() => 'fresh'));
+        $this->assertSame('fresh', $cache->remember('corrupt', 60, fn () => 'fresh'));
     }
 
     #[Test]

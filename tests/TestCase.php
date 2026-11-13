@@ -36,7 +36,7 @@ abstract class TestCase extends BaseTestCase
 
     private static function createConnection(): mysqli
     {
-        $host = env('DB_HOST',     '127.0.0.1');
+        $host = env('DB_HOST', '127.0.0.1');
         $user = env('DB_USERNAME', 'root');
         $pass = (string) env('DB_PASSWORD', '');
         $name = env('DB_DATABASE', 'login_test');

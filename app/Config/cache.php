@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Lib\Cache\CacheInterface;
 use App\Lib\Cache\FileCache;
 use App\Lib\Cache\NullCache;
