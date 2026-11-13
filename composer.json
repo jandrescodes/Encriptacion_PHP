@@ -12,7 +12,7 @@
         "vlucas/phpdotenv": "^5.6"
     },
     "require-dev": {
-        "laravel/pint": "~1.30.0",
+        "laravel/pint": ">=1.30 <1.30.5",
         "phpstan/phpstan": "^2.3",
         "phpunit/phpunit": "^11.0"
     },
