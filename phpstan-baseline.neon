@@ -1,0 +1,13 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Variable \$connection might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Config/autoload.php
+
+		-
+			message: '#^Variable \$googleUser might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Controller/AuthController.php

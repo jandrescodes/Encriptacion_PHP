@@ -1,0 +1,10 @@
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    level: 1
+    paths:
+        - app
+        - libs
+    bootstrapFiles:
+        - app/Config/database.php
