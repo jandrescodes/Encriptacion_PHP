@@ -4,6 +4,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: phpunit/phpunit
+        update-types: [version-update:semver-major]
+      - dependency-name: laravel/pint
+        versions: [">=1.32"]
     groups:
       composer-minor-patch:
         update-types: [minor, patch]
