@@ -2,7 +2,7 @@
 
 # SecureAuth — PHP MVC Authentication System
 
-[![Version](https://img.shields.io/badge/version-1.17.0-blue.svg?style=flat-square)](https://github.com/jandrescodes/Encriptacion_PHP/releases/tag/1.17.0)
+[![Version](https://img.shields.io/badge/version-1.18.0-blue.svg?style=flat-square)](https://github.com/jandrescodes/Encriptacion_PHP/releases/tag/1.18.0)
 [![Tests](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml/badge.svg)](https://github.com/jandrescodes/Encriptacion_PHP/actions/workflows/tests.yml)
 [![PHP Version](https://img.shields.io/badge/PHP->=8.2-777BB4.svg?style=flat-square&logo=php)](https://php.net/)
 [![PHPMailer](https://img.shields.io/badge/PHPMailer-^6.9-1F3B5F.svg?style=flat-square)](https://github.com/PHPMailer/PHPMailer)
@@ -91,7 +91,7 @@ Full audit trail with server-side filtering by event type, username, and date ra
 - Cache for the users listing and Activity Log queries (file by default, optional Redis/Valkey); user-list cache invalidates on writes and Activity Log results expire after 60 seconds. Optional Redis-backed PHP sessions and per-IP login throttling degrade gracefully if Redis is down
 - DataTables-powered tables with export (Copy, PDF, Excel, CSV, Print) and column visibility toggle
 - SweetAlert2 notifications for CRUD and authentication feedback
-- 145-test PHPUnit suite (unit + integration) running against a real MySQL database, with CI via GitHub Actions
+- 177-test PHPUnit suite (unit + integration) running against a real MySQL database, with CI via GitHub Actions
 
 > See [Security](#security) below for how each of these is implemented under the hood.
 
@@ -166,7 +166,7 @@ This step is optional. Without it the app works normally but the "Continue with 
 ## Project Structure
 
 ```
-├── app/            # MVC core — Config, Controller, Core, Middleware, Model, Service
+├── app/            # MVC core — Config, Controller, Core, Middleware, Model, Policy, Service
 ├── database/        # Schema, test schema, and seed data
 ├── libs/            # File-based cache implementation
 ├── public/           # Web root — front controller, CSS/JS/fonts, .htaccess
@@ -176,6 +176,8 @@ This step is optional. Without it the app works normally but the "Continue with 
 ├── tests/            # PHPUnit unit + integration suite
 ├── .env.example      # Environment variable template
 ├── phpunit.xml       # PHPUnit configuration
+├── phpstan.neon      # PHPStan level 1 (+ phpstan-baseline.neon)
+├── pint.json         # Pint, preset psr12
 └── composer.json     # Dependencies and PSR-4 autoload
 ```
 
@@ -236,10 +238,10 @@ All routes are declared in `routes/web.php` and dispatched by `App\Core\Router`:
 - **Admin self-protection** — admins cannot delete their own account or remove their own `is_admin` flag
 - **Account lockout** — 5 consecutive failed logins lock the account for 15 min (configurable); only tracked for existing usernames; lockout cleared on successful login or password reset
 - **Custom error pages** — 404, 403, 500 views are standalone (no DB/session dependency); DB errors logged via `error_log()`, never exposed to the browser
-- **Audit log** — `ActivityLog::log()` wrapped in try/catch so a logging failure never aborts the main flow; IP from `$_SERVER['REMOTE_ADDR']` only; records preserved via FK `ON DELETE SET NULL` when user is deleted
+- **Audit log** — `AuditLog::record()` wrapped in try/catch so a logging failure never aborts the main flow; IP from `$_SERVER['REMOTE_ADDR']` only; records preserved via FK `ON DELETE SET NULL` when user is deleted
 - **Redis sessions (optional)** — `SESSION_DRIVER=redis` uses the native phpredis handler with locking and `session.use_strict_mode=1`; falls back to files if Redis is unreachable. Session payload (`session_token`, CSRF token, OAuth `state`) is stored in clear in Redis, like in the session files today, and the key is the session ID: protect Redis with the ACL user, local `bind` and no persistence (`docs/redis/redis.conf.example`)
 - **Per-IP login throttle (optional)** — `LOGIN_IP_THROTTLE_ENABLED=true` limits login attempts per IP (`LOGIN_IP_MAX_ATTEMPTS` per `LOGIN_IP_WINDOW` seconds) with Redis `INCR` + `EXPIRE`; the IP is stored as a SHA-256 hash and it fails open if Redis is down (the per-account lockout still applies)
-- **Active sessions** — every login stores only the SHA-256 hash of a random session token in `user_sessions` (never the raw token); `AuthMiddleware::session()` checks the hash on protected requests and force-logs-out the browser if the row was revoked; revoke/revoke-others queries are always scoped to `user_id`, so one user cannot terminate another's session
+- **Active sessions** — every login stores only the SHA-256 hash of a random session token in `user_sessions` (never the raw token); `ActiveSessionMiddleware` checks the hash on protected requests and force-logs-out the browser if the row was revoked; revoke/revoke-others queries are always scoped to `user_id`, so one user cannot terminate another's session
 
 ## Cache
 
@@ -270,13 +272,13 @@ cp .env.testing.example .env.testing
 composer test
 
 # Run by suite
-composer test:unit         # models + OAuth helpers + cache — 93 tests
-composer test:integration  # Auth + Google OAuth callback + Redis (cache, sessions, IP throttle) — 52 tests
+composer test:unit         # models + OAuth helpers + cache + policies/flash/router — 107 tests
+composer test:integration  # Auth + Google OAuth callback + Redis (cache, sessions, IP throttle) + login/session services — 70 tests
 ```
 
 ### CI
 
-Tests run automatically on every push and PR to `master` via GitHub Actions (`.github/workflows/tests.yml`).
+Tests run automatically on every push and PR to `master` via GitHub Actions (`.github/workflows/tests.yml`): the test job (MySQL + Valkey) and a `quality` job running `composer stan` (PHPStan level 1 with baseline) and `composer lint` (Pint, psr12). Dependabot groups minor/patch updates for Composer and GitHub Actions.
 
 ## Contributing
 

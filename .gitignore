@@ -18,3 +18,6 @@ public/storage/
 .mcp.json
 # Config real de Redis (lleva la clave del usuario ACL)
 docs/redis/redis.conf
+
+# Snapshots de playwright-mcp
+.playwright-mcp/

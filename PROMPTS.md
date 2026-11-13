@@ -592,5 +592,5 @@ Al final: queries SQL finales, consideraciones de seguridad, checklist de testin
 
 ---
 
-_Última actualización: 2026-11-03 — 1.17.0 (caché Redis para Activity Log, pruebas de integración Redis y documentación sincronizada)_
+_Última actualización: 2026-11-13 — 1.18.0 (middleware declarativo, capa de servicios, PHPStan/Pint y 177 pruebas)_
 _Mantener sincronizado con CLAUDE.md al agregar features nuevas._

@@ -6,6 +6,34 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 > Note: Entries before `1.3.1` may reference legacy paths (`config/`, `controllers/`, `model/`) that were moved to `app/Config/`, `app/Controller/`, and `app/Model/`.
 
+## [1.18.0] — 2026-11-13
+
+### Fixed
+
+- **Revocación de sesiones en todas las rutas protegidas**: `ActiveSessionMiddleware` solo se aplicaba a parte de las rutas; en las demás una sesión cerrada desde otro dispositivo seguía funcionando hasta expirar. Ahora el middleware se declara por grupo de rutas y `RouterTest` falla si una ruta protegida no lo incluye.
+- El campo `ip_address` nulo del Activity Log ya no provoca `TypeError` con `strict_types`.
+
+### Added
+
+- **Middleware declarativo** (Chain of Responsibility): interfaz `Middleware`, `TimeoutMiddleware`, `ActiveSessionMiddleware`, `AuthenticateMiddleware` y `AdminMiddleware`; `Router::group()` define el orden `Timeout → ActiveSession → Authenticate [→ Admin]` en `routes/web.php` y los controladores ya no lo invocan.
+- **Capa de servicios** en `app/Service/`: `SessionIssuer` (única emisión de sesión: contraseña, Google y remember-me), `RememberCookie`, `LoginService` + `LoginResult` (reglas del login por contraseña), `OAuthAccountResolver`, `AuditLog` (inyectable, un fallo va a `error_log()` y no aborta la petición) y `PasswordPolicy`.
+- `App\Core\Flash` para los avisos de sesión (`success/error/warning/info`, `pull()`).
+- `App\Policy\UserPolicy` (`canDelete`, `canSetAdminFlag`): reglas de autoprotección del administrador.
+- **Calidad**: PHPStan nivel 1 con baseline (`composer stan`), Pint con preset `psr12` (`composer lint`), job `quality` en CI y Dependabot para Composer y GitHub Actions. El CI crea `.env.testing` desde `.env.testing.example`.
+- `declare(strict_types=1)` en `app/`, `libs/`, `routes/` y `public/index.php`.
+- 32 pruebas nuevas (177 en total: 107 unitarias y 70 de integración): caracterización de login/logout, `SessionIssuer`, `LoginService`, `Flash`, `Router`, `PasswordPolicy` y `UserPolicy`.
+
+### Changed
+
+- `AuthController::login()` delega en `LoginService`; `Auth::restoreFromCookie()` usa `SessionIssuer` y `RememberCookie`.
+- La regla de contraseña mínima de 8 caracteres vive en `PasswordPolicy` y se aplica al restablecer, al cambiarla en el perfil y en el CRUD de usuarios; el mensaje es «Password must be at least 8 characters long» en los tres casos.
+- `Controller` expone `$this->audit`; los tests ya no cargan el singleton de base de datos.
+- Formato PSR-12 aplicado con Pint a todo el código fuera de `views/`.
+
+### Removed
+
+- `ActivityLog::log()` y `ActivityLog::logTo()` (sustituidos por `AuditLog::record()`) y `AuthMiddleware` (sustituido por `AuthenticateMiddleware`).
+
 ## [1.17.0] — 2026-11-03
 
 ### Added
