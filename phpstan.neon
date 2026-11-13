@@ -6,5 +6,5 @@ parameters:
     paths:
         - app
         - libs
-    bootstrapFiles:
+    scanFiles:
         - app/Config/database.php

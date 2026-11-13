@@ -65,6 +65,7 @@ jobs:
         run: |
           cp .env.testing.example .env.testing
           sed -i 's/^REDIS_PASSWORD=.*/REDIS_PASSWORD=ci-secret/' .env.testing
+          grep -E '^[A-Z_]+=' .env.testing > .env
 
       - name: Run PHPUnit
         env:
@@ -88,6 +89,9 @@ jobs:
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Create .env
+        run: grep -E '^[A-Z_]+=' .env.testing.example > .env
 
       - name: PHPStan
         run: composer stan
