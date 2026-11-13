@@ -1,9 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Core\Controller;
-use App\Middleware\AuthMiddleware;
+use App\Core\Flash;
 use App\Model\ActivityLog;
 use App\Model\UserSession;
 
@@ -17,13 +19,6 @@ class SessionController extends Controller
         $this->sessionModel = new UserSession($connection);
     }
 
-    private function guard(): void
-    {
-        AuthMiddleware::timeout($this->connection);
-        AuthMiddleware::session($this->connection);
-        AuthMiddleware::auth();
-    }
-
     private function currentTokenHash(): string
     {
         return hash('sha256', $_SESSION['session_token'] ?? '');
@@ -31,8 +26,6 @@ class SessionController extends Controller
 
     public function index(): void
     {
-        $this->guard();
-
         $this->render('session/index.php', [
             'pageTitle'    => 'Active Sessions — SecureAuth',
             'sessions'     => $this->sessionModel->getForUser((int) $_SESSION['user_id'], $this->currentTokenHash()),
@@ -42,7 +35,6 @@ class SessionController extends Controller
 
     public function revoke(): void
     {
-        $this->guard();
         $this->verifyCsrf('/sessions');
 
         if (isset($_POST['btnrevoke'])) {
@@ -52,12 +44,10 @@ class SessionController extends Controller
             $revoked = $this->sessionModel->revoke($sessionId, (int) $_SESSION['user_id']);
 
             if ($revoked) {
-                ActivityLog::log(ActivityLog::EVENT_SESSION_REVOKED, 'Session revoked', (int) $_SESSION['user_id']);
-                $_SESSION['message'] = 'Session revoked successfully';
-                $_SESSION['icon']    = 'success';
+                $this->audit->record(ActivityLog::EVENT_SESSION_REVOKED, 'Session revoked', (int) $_SESSION['user_id']);
+                Flash::success('Session revoked successfully');
             } else {
-                $_SESSION['message'] = 'Session not found';
-                $_SESSION['icon']    = 'error';
+                Flash::error('Session not found');
             }
         }
 
@@ -66,15 +56,13 @@ class SessionController extends Controller
 
     public function revokeOthers(): void
     {
-        $this->guard();
         $this->verifyCsrf('/sessions');
 
         if (isset($_POST['btnrevokeothers'])) {
             $count = $this->sessionModel->revokeAllExcept((int) $_SESSION['user_id'], $this->currentTokenHash());
 
-            ActivityLog::log(ActivityLog::EVENT_SESSION_REVOKED, "Revoked {$count} other session(s)", (int) $_SESSION['user_id']);
-            $_SESSION['message'] = 'All other sessions have been revoked';
-            $_SESSION['icon']    = 'success';
+            $this->audit->record(ActivityLog::EVENT_SESSION_REVOKED, "Revoked {$count} other session(s)", (int) $_SESSION['user_id']);
+            Flash::success('All other sessions have been revoked');
         }
 
         $this->redirect('/sessions');

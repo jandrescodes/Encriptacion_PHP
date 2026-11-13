@@ -8,9 +8,11 @@ use App\Controller\AuthController;
 use App\Core\Auth;
 use App\Model\User;
 use App\Service\GoogleOAuthService;
+use App\Service\OAuthAccountResolver;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\CapturingAuthController;
+use Tests\Support\RedirectCaptured;
 use Tests\TestCase;
-use RuntimeException;
 
 final class AuthGoogleCallbackTest extends TestCase
 {
@@ -24,12 +26,11 @@ final class AuthGoogleCallbackTest extends TestCase
         $this->controller = new AuthController(self::$db);
     }
 
-    // --- resolveOrCreateAccount (via reflection — no Google HTTP involved) ---
+    // --- OAuthAccountResolver (sin HTTP a Google) ---
 
     private function resolveOrCreateAccount(User $userModel, array $googleUser): ?array
     {
-        $method = new \ReflectionMethod(AuthController::class, 'resolveOrCreateAccount');
-        return $method->invoke($this->controller, $userModel, $googleUser);
+        return (new OAuthAccountResolver($userModel))->resolve($googleUser);
     }
 
     #[Test]
@@ -258,20 +259,5 @@ final class AuthGoogleCallbackTest extends TestCase
         $this->assertNotEmpty($token);
         $this->assertNull($auth->consumeResetToken($token, 'newpass123'));
         $this->assertNull($this->users->getById($id)['password']);
-    }
-}
-
-final class RedirectCaptured extends RuntimeException
-{
-}
-
-final class CapturingAuthController extends AuthController
-{
-    public ?string $redirectedTo = null;
-
-    protected function redirect(string $path): void
-    {
-        $this->redirectedTo = $path;
-        throw new RedirectCaptured();
     }
 }

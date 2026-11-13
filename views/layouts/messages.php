@@ -1,7 +1,8 @@
 <?php
-if ((isset($_SESSION['message'])) && (isset($_SESSION['icon']))) {
-    $message = $_SESSION['message'];
-    $icon    = $_SESSION['icon']; ?>
+$flash = \App\Core\Flash::pull();
+if ($flash !== null) {
+    $message = $flash['message'];
+    $icon    = $flash['icon']; ?>
     <script src="<?= APP_URL ?>/js/sweetalert2.all.min.js"></script>
     <script>
         const Toast = Swal.mixin({
@@ -21,6 +22,4 @@ if ((isset($_SESSION['message'])) && (isset($_SESSION['icon']))) {
         });
     </script>
 <?php
-    unset($_SESSION['message']);
-    unset($_SESSION['icon']);
 } ?>

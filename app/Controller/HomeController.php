@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Core\Controller;
-use App\Middleware\AuthMiddleware;
 use App\Model\User;
 use App\Model\ActivityLog;
 use App\Model\LoginAttempt;
@@ -12,9 +13,6 @@ class HomeController extends Controller
 {
     public function index(): void
     {
-        AuthMiddleware::timeout($this->connection);
-        AuthMiddleware::auth();
-
         $userModel    = new User($this->connection);
         $logModel     = new ActivityLog($this->connection);
         $attemptModel = new LoginAttempt($this->connection);

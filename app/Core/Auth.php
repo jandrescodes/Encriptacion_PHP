@@ -1,10 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Core;
 
 use App\Model\LoginAttempt;
 use App\Model\User;
-use App\Model\UserSession;
+use App\Service\RememberCookie;
+use App\Service\SessionIssuer;
 
 class Auth
 {
@@ -157,33 +160,18 @@ class Auth
         }
 
         $enabled = filter_var(env('REMEMBER_ME_ENABLED', false), FILTER_VALIDATE_BOOLEAN);
-        if (!$enabled || empty($_COOKIE['remember_me'])) {
+        if (!$enabled || empty($_COOKIE[RememberCookie::NAME])) {
             return;
         }
 
-        $user = $this->consumeRememberToken($_COOKIE['remember_me']);
+        $user = $this->consumeRememberToken($_COOKIE[RememberCookie::NAME]);
 
         if (!$user) {
-            setcookie('remember_me', '', ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict']);
+            RememberCookie::clear();
             return;
         }
 
-        session_regenerate_id(true);
-        $_SESSION['user_id']       = $user['id'];
-        $_SESSION['name']          = $user['first_name'];
-        $_SESSION['is_admin']      = $user['is_admin'];
-        $_SESSION['last_activity'] = time();
-
-        $sessionToken = bin2hex(random_bytes(32));
-        $_SESSION['session_token'] = $sessionToken;
-        UserSession::createTo(
-            $this->connection,
-            (int) $user['id'],
-            $sessionToken,
-            $_SERVER['REMOTE_ADDR'] ?? '',
-            $_SERVER['HTTP_USER_AGENT'] ?? '',
-            viaRemember: true
-        );
+        (new SessionIssuer($this->connection))->issue($user, viaRemember: true);
     }
 
     public function rememberTtl(): int

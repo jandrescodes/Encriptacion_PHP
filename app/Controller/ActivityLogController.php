@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Core\Controller;
-use App\Middleware\AuthMiddleware;
 use App\Model\ActivityLog;
 use App\Model\User;
 
@@ -43,9 +44,6 @@ class ActivityLogController extends Controller
 
     public function index(): void
     {
-        AuthMiddleware::timeout($this->connection);
-        AuthMiddleware::admin();
-
         $activeFilters = $this->sanitizeFilters($_GET);
         $users = (new User($this->connection))->getAll();
 
@@ -62,9 +60,6 @@ class ActivityLogController extends Controller
 
     public function data(): void
     {
-        AuthMiddleware::timeout($this->connection);
-        AuthMiddleware::admin();
-
         $draw   = (int)($_GET['draw'] ?? 1);
         $start  = max(0, (int)($_GET['start'] ?? 0));
         $length = in_array((int)($_GET['length'] ?? 25), [10, 25, 50, 100], true)
@@ -82,12 +77,12 @@ class ActivityLogController extends Controller
                 : '<span class="badge badge-light badge-pill p-2">' . htmlspecialchars($row['event'], ENT_QUOTES, 'UTF-8') . '</span>';
 
             return [
-                htmlspecialchars((string)$row['id'],             ENT_QUOTES, 'UTF-8'),
-                htmlspecialchars($row['created_at'],              ENT_QUOTES, 'UTF-8'),
+                htmlspecialchars((string)$row['id'], ENT_QUOTES, 'UTF-8'),
+                htmlspecialchars($row['created_at'], ENT_QUOTES, 'UTF-8'),
                 $eventHtml,
-                htmlspecialchars($row['description'],             ENT_QUOTES, 'UTF-8'),
+                htmlspecialchars($row['description'], ENT_QUOTES, 'UTF-8'),
                 htmlspecialchars($row['user_name'] ?? 'Anónimo', ENT_QUOTES, 'UTF-8'),
-                htmlspecialchars($row['ip_address'],              ENT_QUOTES, 'UTF-8'),
+                htmlspecialchars((string) ($row['ip_address'] ?? ''), ENT_QUOTES, 'UTF-8'),
             ];
         }, $logs);
 
