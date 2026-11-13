@@ -6,6 +6,7 @@ namespace Tests\Integration;
 
 use App\Lib\Cache\RedisCache;
 use App\Model\ActivityLog;
+use App\Service\AuditLog;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithRedis;
 use Tests\TestCase;
@@ -22,7 +23,7 @@ final class ActivityLogCacheRedisTest extends TestCase
         $this->setUpRedis();
         $this->logs = new ActivityLog(self::$db, new RedisCache($this->redis, 'encphp_test:v1:cache:'));
 
-        ActivityLog::logTo(self::$db, ActivityLog::EVENT_LOGIN_SUCCESS, 'first');
+        (new AuditLog(self::$db))->record(ActivityLog::EVENT_LOGIN_SUCCESS, 'first');
     }
 
     protected function tearDown(): void
@@ -56,7 +57,7 @@ final class ActivityLogCacheRedisTest extends TestCase
     {
         $this->assertCount(1, $this->logs->getAll([], 25, 0));
 
-        ActivityLog::logTo(self::$db, ActivityLog::EVENT_LOGIN_SUCCESS, 'second');
+        (new AuditLog(self::$db))->record(ActivityLog::EVENT_LOGIN_SUCCESS, 'second');
 
         $this->assertCount(1, $this->logs->getAll([], 25, 0));
     }

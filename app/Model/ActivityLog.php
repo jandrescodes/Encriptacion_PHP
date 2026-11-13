@@ -1,8 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Model;
 
-use App\Config\Database;
 use App\Lib\Cache\CacheInterface;
 use App\Core\Model;
 
@@ -28,33 +29,12 @@ class ActivityLog extends Model
 
     private CacheInterface $cache;
 
-    public static function log(string $event, string $description, ?int $userId = null): void
-    {
-        static::logTo(Database::getConnection(), $event, $description, $userId);
-    }
-
-    // Separated for test injection without loading autoload.php or using the singleton
-    public static function logTo(\mysqli $db, string $event, string $description, ?int $userId = null): void
-    {
-        try {
-            $ip   = $_SERVER['REMOTE_ADDR'] ?? null;
-            $stmt = $db->prepare(
-                "INSERT INTO activity_logs (user_id, event, description, ip_address) VALUES (?, ?, ?, ?)"
-            );
-            $stmt->bind_param("isss", $userId, $event, $description, $ip);
-            $stmt->execute();
-            $stmt->close();
-        } catch (\Throwable $e) {
-            error_log("ActivityLog::log failed: " . $e->getMessage());
-        }
-    }
-
     public function getCountTodayByEvent(string $event): int
     {
         return $this->cache->remember(
             'activity_log.count_today.' . sha1($event),
             self::CACHE_TTL_SECONDS,
-            fn(): int => $this->queryCountTodayByEvent($event)
+            fn (): int => $this->queryCountTodayByEvent($event)
         );
     }
 
@@ -77,7 +57,7 @@ class ActivityLog extends Model
         return $this->cache->remember(
             'activity_log.recent.' . $limit,
             self::CACHE_TTL_SECONDS,
-            fn(): array => $this->queryRecentEvents($limit)
+            fn (): array => $this->queryRecentEvents($limit)
         );
     }
 
@@ -109,7 +89,7 @@ class ActivityLog extends Model
         return $this->cache->remember(
             $key,
             self::CACHE_TTL_SECONDS,
-            fn(): array => $this->queryAll($filters, $limit, $offset)
+            fn (): array => $this->queryAll($filters, $limit, $offset)
         );
     }
 
@@ -162,7 +142,7 @@ class ActivityLog extends Model
         return $this->cache->remember(
             $key,
             self::CACHE_TTL_SECONDS,
-            fn(): int => $this->queryTotalCount($filters)
+            fn (): int => $this->queryTotalCount($filters)
         );
     }
 

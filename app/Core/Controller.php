@@ -1,16 +1,24 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Core;
+
+use App\Service\AuditLog;
 
 abstract class Controller
 {
-    public function __construct(protected \mysqli $connection) {}
+    protected AuditLog $audit;
+
+    public function __construct(protected \mysqli $connection, ?AuditLog $audit = null)
+    {
+        $this->audit = $audit ?? new AuditLog($connection);
+    }
 
     protected function verifyCsrf(string $redirectPath): void
     {
         if (!Csrf::verify()) {
-            $_SESSION['message'] = 'Invalid request. Please try again.';
-            $_SESSION['icon']    = 'error';
+            Flash::error('Invalid request. Please try again.');
             $this->redirect($redirectPath);
         }
     }

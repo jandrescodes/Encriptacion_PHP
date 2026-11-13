@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Core\Controller;
-use App\Middleware\AuthMiddleware;
+use App\Core\Flash;
 use App\Model\ActivityLog;
 use App\Model\User;
+use App\Service\PasswordPolicy;
 
 class ProfileController extends Controller
 {
@@ -17,16 +20,8 @@ class ProfileController extends Controller
         $this->userModel = new User($connection);
     }
 
-    private function guard(): void
-    {
-        AuthMiddleware::timeout($this->connection);
-        AuthMiddleware::auth();
-    }
-
     public function profile(): void
     {
-        $this->guard();
-
         $id = (int) $_SESSION['user_id'];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
@@ -42,18 +37,15 @@ class ProfileController extends Controller
             $error = $this->validateProfile($data, $id);
 
             if ($error) {
-                $_SESSION['message'] = $error;
-                $_SESSION['icon']    = 'error';
+                Flash::error($error);
                 $this->redirect('/profile');
             }
 
             if ($this->userModel->updateProfile($id, $data)) {
                 $_SESSION['name']    = $data['first_name'];
-                $_SESSION['message'] = 'Profile updated successfully';
-                $_SESSION['icon']    = 'success';
+                Flash::success('Profile updated successfully');
             } else {
-                $_SESSION['message'] = 'Failed to update profile';
-                $_SESSION['icon']    = 'error';
+                Flash::error('Failed to update profile');
             }
 
             $this->redirect('/profile');
@@ -69,8 +61,6 @@ class ProfileController extends Controller
 
     public function changePassword(): void
     {
-        $this->guard();
-
         $id             = (int) $_SESSION['user_id'];
         $current        = $_POST['current_password'] ?? '';
         $new            = $_POST['new_password']     ?? '';
@@ -82,23 +72,20 @@ class ProfileController extends Controller
 
         $this->verifyCsrf('/profile');
 
-        if (strlen($new) < 8) {
-            $_SESSION['message'] = 'New password must be at least 8 characters';
-            $_SESSION['icon']    = 'error';
+        if ($policyError = PasswordPolicy::validate($new)) {
+            Flash::error($policyError);
             $this->redirect('/profile');
         }
 
         if ($new !== $confirm) {
-            $_SESSION['message'] = 'New password and confirmation do not match';
-            $_SESSION['icon']    = 'error';
+            Flash::error('New password and confirmation do not match');
             $this->redirect('/profile');
         }
 
         $user = $this->userModel->getById($id);
 
         if (!$user) {
-            $_SESSION['message'] = 'User not found';
-            $_SESSION['icon']    = 'error';
+            Flash::error('User not found');
             $this->redirect('/profile');
         }
 
@@ -106,19 +93,16 @@ class ProfileController extends Controller
             $hash = $this->userModel->getPasswordById($id);
 
             if (!$hash || !password_verify($current, $hash)) {
-                $_SESSION['message'] = 'Current password is incorrect';
-                $_SESSION['icon']    = 'error';
+                Flash::error('Current password is incorrect');
                 $this->redirect('/profile');
             }
         }
 
         if ($this->userModel->updatePasswordProfile($id, $new)) {
-            ActivityLog::log(ActivityLog::EVENT_PASSWORD_CHANGED, 'Password set via profile', $id);
-            $_SESSION['message'] = 'Password updated successfully';
-            $_SESSION['icon']    = 'success';
+            $this->audit->record(ActivityLog::EVENT_PASSWORD_CHANGED, 'Password set via profile', $id);
+            Flash::success('Password updated successfully');
         } else {
-            $_SESSION['message'] = 'Failed to update password';
-            $_SESSION['icon']    = 'error';
+            Flash::error('Failed to update password');
         }
 
         $this->redirect('/profile');

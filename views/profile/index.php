@@ -87,9 +87,9 @@
                             <span class="input-group-text"><i class="fas fa-key"></i></span>
                         </div>
                         <input type="password" class="form-control" name="new_password"
-                            id="new_password" minlength="8" autocomplete="new-password" required>
+                            id="new_password" minlength="<?= \App\Service\PasswordPolicy::MIN_LENGTH ?>" autocomplete="new-password" required>
                     </div>
-                    <small class="form-text text-muted">Minimum 8 characters</small>
+                    <small class="form-text text-muted">Minimum <?= \App\Service\PasswordPolicy::MIN_LENGTH ?> characters</small>
                 </div>
                 <div class="mb-3">
                     <label for="confirm_password" class="form-label">Confirm New Password</label>
@@ -98,7 +98,7 @@
                             <span class="input-group-text"><i class="fas fa-key"></i></span>
                         </div>
                         <input type="password" class="form-control" name="confirm_password"
-                            id="confirm_password" minlength="8" autocomplete="new-password" required>
+                            id="confirm_password" minlength="<?= \App\Service\PasswordPolicy::MIN_LENGTH ?>" autocomplete="new-password" required>
                     </div>
                 </div>
             </div>
